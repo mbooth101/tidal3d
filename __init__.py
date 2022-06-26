@@ -1,46 +1,53 @@
 from tidal import *
 from app import App
+import framebuf
+import time
 
-class Renderer(App):
+class BufferedDisplay:
+    """A buffered display that renders to an off-screen framebuffer so the whole scene can
+    be blitted to the actual display in one call"""
 
-    # Cache screen dimensions
-    DISPLAY_WIDTH = display.width()
-    DISPLAY_HEIGHT = display.height()
-    
-    def __init__(self):
-        super().__init__()
+    def __init__(self, display):
+        self.display = display
 
-        # Pre-render the background to an off-screen buffer the same size as the display
-        # Blitting is about twice as fast and re-rendering the chequerboard directly to
-        # the screen on every frame
-        self.bg_buffer = bytearray(2 * self.DISPLAY_WIDTH * self.DISPLAY_HEIGHT)
-        self.chequerboard(self.bg_buffer, 15, color565(175, 175, 175), color565(235, 235, 235))
+        # Cache screen dimensions
+        self.width = display.width()
+        self.height = display.height()
 
-    # Like display.fill_rect(), but for the given buffer
-    def fill_rect(self, buffer, x, y, width, height, colour):
-        colour_bytes = colour.to_bytes(2, 'big')
-        for h in range(height):
-            origin = (x * 2) + ((y + h) * self.DISPLAY_WIDTH * 2)
-            for px in range(origin, origin + (width * 2), 2):
-                buffer[px] = colour_bytes[0]
-                buffer[px+1] = colour_bytes[1]
+        # Create a framebuffer the same size as the display
+        self.buffer = bytearray(2 * self.width * self.height)
+        self.fb = framebuf.FrameBuffer(self.buffer, self.width, self.height, framebuf.RGB565)
 
-    # Renders a chequerboard pattern to the given buffer
-    def chequerboard(self, buffer, square_size, dark_colour, light_colour):
+    def chequerboard(self, size, dark_colour, light_colour):
+        """Renders a chequerboard pattern to the framebuffer"""
         x = 0
-        while x < self.DISPLAY_WIDTH:
+        while x < self.width:
             y = 0
-            while y < self.DISPLAY_HEIGHT:
-                if (x / square_size) % 2 != (y / square_size) % 2:
+            while y < self.height:
+                if (x / size) % 2 != (y / size) % 2:
                     colour = dark_colour
                 else:
                     colour = light_colour
-                self.fill_rect(buffer, x, y, square_size, square_size, colour)
-                y += square_size
-            x += square_size
+                self.fb.fill_rect(x, y, size, size, colour)
+                y += size
+            x += size
+
+    def blit(self):
+        """Send the framebuffer to the display"""
+        self.display.blit_buffer(self.buffer, 0, 0, self.width, self.height)
+
+class Renderer(App):
+
+    def __init__(self):
+        super().__init__()
+
+        # We'll render the frame to an off-screen buffer and blit it to the display
+        # all at once when we're ready
+        self.fb = BufferedDisplay(display)
 
     def on_activate(self):
         super().on_activate()
+
         self.render()
         self.timer = self.periodic(1000, self.render)
 
@@ -49,8 +56,16 @@ class Renderer(App):
         super().on_deactivate()
 
     def render(self):
-        # Render the background (~32 or 33ms)
-        display.blit_buffer(self.bg_buffer, 0, 0, self.DISPLAY_WIDTH, self.DISPLAY_HEIGHT)
+        a = time.ticks_ms()
+        # Render background
+        self.fb.chequerboard(15, color565(185, 185, 185), color565(235, 235, 235))
+
+        # Render foreground
+        # TODO
+
+        self.fb.blit()
+        b = time.ticks_ms()
+        print(time.ticks_diff(b,a))
 
 # Set the entrypoint for the app launcher
 main = Renderer
