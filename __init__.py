@@ -10,7 +10,7 @@ class Mesh:
 
     def __init__(self, vertices=None, indices=None):
         # Use a default mesh of a cube
-        self.vertices = [Vec([-1, -1, 1]), Vec([-1, 1, 1]), Vec([1, 1, 1]), Vec([1, -1, 1]), Vec([-1, -1, -1]), Vec([-1, 1, -1]), Vec([1, 1, -1]), Vec([1, -1, -1])]
+        self.vertices = [Vec([-10, -10, 10]), Vec([-10, 10, 10]), Vec([10, 10, 10]), Vec([10, -10, 10]), Vec([-10, -10, -10]), Vec([-10, 10, -10]), Vec([10, 10, -10]), Vec([10, -10, -10])]
         # self.indices = ((0, 1, 2), (2, 3, 0), (1, 5, 6), (6, 2, 1), (5, 4, 7), (7, 6, 5), (4, 0, 3), (3, 7, 4), (3, 2, 6), (6, 7, 3), (0, 5, 1), (0, 4, 5))
 
         # Positional information
@@ -30,7 +30,7 @@ class Renderer(App):
         self.m_proj = Mat.perspective(90, self.fb.width / self.fb.height,  0.1, 100)
 
         # Camera view transformation matrix
-        self.m_view = Mat.identity().translate(Vec([0, 0, -3]))
+        self.m_view = Mat.identity().translate(Vec([0, 0, -35]))
 
         # Model to render
         self.mesh = Mesh()
@@ -38,12 +38,30 @@ class Renderer(App):
     def on_activate(self):
         super().on_activate()
 
+        # Register input callbacks
+        self.buttons.on_press(JOY_UP, self.button_up)
+        self.buttons.on_press(JOY_DOWN, self.button_down)
+        self.buttons.on_press(JOY_LEFT, self.button_left)
+        self.buttons.on_press(JOY_RIGHT, self.button_right)
+
         self.render()
         self.timer = self.periodic(100, self.render)
 
     def on_deactivate(self):
         self.timer.cancel()
         super().on_deactivate()
+
+    def button_up(self):
+        self.mesh.pos[1] += 0.5
+
+    def button_down(self):
+        self.mesh.pos[1] -= 0.5
+
+    def button_left(self):
+        self.mesh.pos[0] -= 0.5
+
+    def button_right(self):
+        self.mesh.pos[0] += 0.5
 
     def render(self):
         start = time.ticks_ms()
