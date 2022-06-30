@@ -94,16 +94,16 @@ class Mat:
                     [0, 0, 0, 1]])
 
     @staticmethod
-    def perspective(fov, near, far):
+    def perspective(fov, aspect, near, far):
         """
-        Returns the perspective projection matrix for the given field of view, multiplication of any vector V
-        with the projection matrix will yield normalised device coordinates
+        Returns the perspective projection matrix for the given field of view and aspect ratio, multiplication
+        of any vector V with the projection matrix will yield normalised device coordinates
         """
         proj_mat = Mat.identity()
-        # Field of view
-        scale = 1 / tan(fov * 0.5 * pi / 180);
-        proj_mat[0, 0] = scale
-        proj_mat[1, 1] = scale
+        # Field of view, accomodating for the aspect ratio of the screen
+        scale = tan(fov * 0.5 * pi / 180);
+        proj_mat[0, 0] = 1.0 / (scale * aspect)  # Scale of the x coord of the projected vertex
+        proj_mat[1, 1] = 1.0 / scale  # Scale of the y coord of the projected vertex
         # Z clipping planes
         proj_mat[2, 2] = -far / (far - near)
         proj_mat[3, 2] = -far * near / (far - near)

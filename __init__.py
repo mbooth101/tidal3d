@@ -27,7 +27,7 @@ class Renderer(App):
         self.fb = BufferedDisplay(display)
 
         # Projection matrix
-        self.m_proj = Mat.perspective(90, 0.1, 100)
+        self.m_proj = Mat.perspective(90, self.fb.width / self.fb.height,  0.1, 100)
 
         # Camera view transformation matrix
         self.m_view = Mat.identity().translate(Vec([0, 0, -3]))
