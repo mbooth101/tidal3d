@@ -1,5 +1,6 @@
 from tidal import *
 from app import App
+from buttons import _num
 import time
 
 from .buffdisp import BufferedDisplay
@@ -15,8 +16,13 @@ class Mesh:
         self.vertices = [Vec([-10, -10, 10]), Vec([-10, 10, 10]), Vec([10, 10, 10]), Vec([10, -10, 10]), Vec([-10, -10, -10]), Vec([-10, 10, -10]), Vec([10, 10, -10]), Vec([10, -10, -10])]
         self.indices = [[0, 1, 2], [2, 3, 0], [1, 5, 6], [6, 2, 1], [5, 4, 7], [7, 6, 5], [4, 0, 3], [3, 7, 4], [3, 2, 6], [6, 7, 3], [0, 5, 1], [0, 4, 5]]
 
-        # Positional information
+        # Position and velocity information
         self.pos = Vec([0, 0, 0])
+        self.velocity = Vec([0, 0, 0])
+
+    def update(self):
+        # Move our position by our velocity
+        self.pos = self.pos.add(self.velocity)
 
 
 class Renderer(App):
@@ -24,7 +30,7 @@ class Renderer(App):
     def __init__(self):
         super().__init__()
 
-        # We'll render the frame to an off-screen buffer and blit it to the display
+        # We'll render the scene to an off-screen buffer and blit it to the display
         # all at once when we're ready
         self.fb = BufferedDisplay(display)
 
@@ -45,13 +51,13 @@ class Renderer(App):
 
         # Register input callbacks
         self.buttons.on_press(BUTTON_A, self.select_mode)
-        self.buttons.on_press(JOY_UP, self.button_up)
-        self.buttons.on_press(JOY_DOWN, self.button_down)
-        self.buttons.on_press(JOY_LEFT, self.button_left)
-        self.buttons.on_press(JOY_RIGHT, self.button_right)
+        self.buttons.on_press(JOY_UP, self.button_up, False)
+        self.buttons.on_press(JOY_DOWN, self.button_down, False)
+        self.buttons.on_press(JOY_LEFT, self.button_left, False)
+        self.buttons.on_press(JOY_RIGHT, self.button_right, False)
 
-        self.render()
-        self.timer = self.periodic(100, self.render)
+        self.loop()
+        self.timer = self.periodic(100, self.loop)
 
     def on_deactivate(self):
         self.timer.cancel()
@@ -64,26 +70,45 @@ class Renderer(App):
         elif self.render_mode == MODE_WIREFRAME:
             self.render_mode = MODE_POINTS
 
-    def button_up(self):
-        self.mesh.pos[1] += 0.5
-
-    def button_down(self):
-        self.mesh.pos[1] -= 0.5
-
     def button_left(self):
-        self.mesh.pos[0] -= 0.5
+        self.mesh.velocity[0] = -0.5
 
     def button_right(self):
-        self.mesh.pos[0] += 0.5
+        self.mesh.velocity[0] = 0.5
 
-    def render(self):
-        start = time.ticks_ms()
+    def button_up(self):
+        self.mesh.velocity[1] = 0.5
+
+    def button_down(self):
+        self.mesh.velocity[1] = -0.5
+
+    def _get_button_state(self, pin):
+        # Buttons are active so invert to make truthy mean pressed, which seems more intuitive
+        return not self.buttons._callbacks[_num(pin)].state
+
+    def loop(self):
+        start_t = time.ticks_ms()
+
+        # Update the simulation
+        self.update()
+
+        # Render the scene
         self.render_background()
         self.render_scene()
         self.fb.blit()
-        end = time.ticks_ms()
-        # Show the time it took to render the frame
-        print(time.ticks_diff(end, start))
+
+        end_t = time.ticks_ms()
+        # Show the time it took to render the scene
+        print(time.ticks_diff(end_t, start_t))
+
+    def update(self):
+        # Kill velocity if buttons no longer pressed
+        if not self._get_button_state(JOY_LEFT) and not self._get_button_state(JOY_RIGHT):
+            self.mesh.velocity[0] = 0
+        if not self._get_button_state(JOY_UP) and not self._get_button_state(JOY_DOWN):
+            self.mesh.velocity[1] = 0
+
+        self.mesh.update()
 
     def render_background(self):
         # Just clear the framebuffer by filling it with a solid colour

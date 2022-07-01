@@ -34,6 +34,12 @@ class Vec:
         """
         return Vec([a * factor for a in self._v])
 
+    def add(self, vector):
+        """
+        Returns the vector given by the sum of this vector and the given vector
+        """
+        return Vec([self[0] + vector[0], self[1] + vector[1], self[2] + vector[2]])
+
     def multiply(self, matrix):
         """
         Returns the vector given by multiplying this vector by the given matrix
