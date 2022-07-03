@@ -4,7 +4,7 @@ from buttons import _num
 import time
 
 from .buffdisp import BufferedDisplay
-from .math3d import Vec, Mat
+from .math3d import Vec, Mat, Quat
 
 MODE_POINTS = 0
 MODE_WIREFRAME = 1
@@ -16,13 +16,21 @@ class Mesh:
         self.vertices = [Vec([-10, -10, 10]), Vec([-10, 10, 10]), Vec([10, 10, 10]), Vec([10, -10, 10]), Vec([-10, -10, -10]), Vec([-10, 10, -10]), Vec([10, 10, -10]), Vec([10, -10, -10])]
         self.indices = [[0, 1, 2], [2, 3, 0], [1, 5, 6], [6, 2, 1], [5, 4, 7], [7, 6, 5], [4, 0, 3], [3, 7, 4], [3, 2, 6], [6, 7, 3], [0, 5, 1], [0, 4, 5]]
 
-        # Position and velocity information
-        self.pos = Vec([0, 0, 0])
+        # Position and linear velocity
+        self.position = Vec([0, 0, 0])
         self.velocity = Vec([0, 0, 0])
+
+        # Orientation and angular velocity
+        self.orientation = Quat([1, 0, 0, 0])
+        self.angular = Vec([0, 0, 0])
 
     def update(self):
         # Move our position by our velocity
-        self.pos = self.pos.add(self.velocity)
+        self.position = self.position.add(self.velocity)
+        # Rotate ourselves around the axis
+        degrees = self.angular.mag()
+        axis = self.angular.normalise()
+        self.orientation = self.orientation.rotate(degrees, axis)
 
 
 class Renderer(App):
@@ -57,7 +65,6 @@ class Renderer(App):
         self.buttons.on_press(JOY_RIGHT, self.button_right, False)
 
         self.loop()
-        self.timer = self.periodic(100, self.loop)
 
     def on_deactivate(self):
         self.timer.cancel()
@@ -71,16 +78,16 @@ class Renderer(App):
             self.render_mode = MODE_POINTS
 
     def button_left(self):
-        self.mesh.velocity[0] = -0.5
+        self.mesh.angular[1] = 3
 
     def button_right(self):
-        self.mesh.velocity[0] = 0.5
+        self.mesh.angular[1] = -3
 
     def button_up(self):
-        self.mesh.velocity[1] = 0.5
+        self.mesh.angular[0] = 3
 
     def button_down(self):
-        self.mesh.velocity[1] = -0.5
+        self.mesh.angular[0] = -3
 
     def _get_button_state(self, pin):
         # Buttons are active so invert to make truthy mean pressed, which seems more intuitive
@@ -98,15 +105,18 @@ class Renderer(App):
         self.fb.blit()
 
         end_t = time.ticks_ms()
+
         # Show the time it took to render the scene
         print(time.ticks_diff(end_t, start_t))
+
+        self.timer = self.after(1, self.loop)
 
     def update(self):
         # Kill velocity if buttons no longer pressed
         if not self._get_button_state(JOY_LEFT) and not self._get_button_state(JOY_RIGHT):
-            self.mesh.velocity[0] = 0
+            self.mesh.angular[1] = 0
         if not self._get_button_state(JOY_UP) and not self._get_button_state(JOY_DOWN):
-            self.mesh.velocity[1] = 0
+            self.mesh.angular[0] = 0
 
         self.mesh.update()
 
@@ -119,7 +129,7 @@ class Renderer(App):
 
     def render_scene(self):
         # Model transformation matrix, specific to the mesh being rendered
-        m_model = Mat.identity().translate(self.mesh.pos)
+        m_model = Mat.identity().rotate(self.mesh.orientation).translate(self.mesh.position)
 
         # Project all verts in the model
         verts = []

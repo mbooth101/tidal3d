@@ -1,10 +1,10 @@
 from functools import reduce
-from math import sqrt, tan, pi
+from math import cos, sin, radians, sqrt, tan
 
 
 class Vec:
     """
-    Utility class for dealing with points and vectors
+    Utility class for dealing with 3D points and vectors
     """
 
     def __init__(self, v):
@@ -26,13 +26,17 @@ class Vec:
         """
         Returns the vector normalised to unit length
         """
-        return Vec([a / self.mag() for a in self._v])
+        magnitude = self.mag()
+        if magnitude == 0:
+            return Vec([0, 0, 0])
+        else:
+            return Vec([self[0] / magnitude, self[1] / magnitude, self[2] / magnitude])
 
     def scale(self, factor):
         """
         Returns the vector scaled by the given factor
         """
-        return Vec([a * factor for a in self._v])
+        return Vec([self[0] * factor, self[1] * factor, self[2] * factor])
 
     def add(self, vector):
         """
@@ -56,8 +60,7 @@ class Vec:
         angle between them is greater than 90° or >0 if the angle between them is less than 90° (dot product)
         """
         result = 0
-        # We are assuming here that both operands are vectors of the same length
-        for i in range(len(self._v)):
+        for i in range(3):
             # Micropython does not have math.prod(), so use reduce with a lambda instead
             result += reduce(lambda a, b: a * b, [v[i] for v in [self, vector]])
         return result
@@ -70,6 +73,41 @@ class Vec:
         y = self[2] * vector[0] - self[0] * vector[2]
         z = self[0] * vector[1] - self[1] * vector[0]
         return Vec([x, y, z])
+
+
+class Quat:
+    """
+    Utility class for dealing with quaternions
+    """
+
+    def __init__(self, q):
+        self._q = q
+
+    def __getitem__(self, index):
+        return self._q[index]
+
+    def __setitem__(self, index, value):
+        self._q[index] = value
+
+    def rotate(self, angle, vector):
+        """
+        Returns the quaternion given by rotating this quaternion by the given angle of rotation in
+        degrees around the axis described by the given vector
+        """
+        theta = radians(angle) / 2
+        factor = sin(theta)
+        rotation = Quat([cos(theta), vector[0] * factor, vector[1] * factor, vector[2] * factor])
+        return self.multiply(rotation)
+
+    def multiply(self, quat):
+        """
+        Returns the quaternion given by multiplying this quaternion with the given quaternion
+        """
+        w = self[0] * quat[0] - self[1] * quat[1] - self[2] * quat[2] - self[3] * quat[3]
+        x = self[0] * quat[1] + self[1] * quat[0] + self[2] * quat[3] - self[3] * quat[2]
+        y = self[0] * quat[2] - self[1] * quat[3] + self[2] * quat[0] + self[3] * quat[1]
+        z = self[0] * quat[3] + self[1] * quat[2] - self[2] * quat[1] + self[3] * quat[0]
+        return Quat([w, x, y, z])
 
 
 class Mat:
@@ -107,7 +145,7 @@ class Mat:
         """
         proj_mat = Mat.identity()
         # Field of view, accomodating for the aspect ratio of the screen
-        scale = tan(fov * 0.5 * pi / 180);
+        scale = tan(radians(fov * 0.5));
         proj_mat[0, 0] = 1.0 / (scale * aspect)  # Scale of the x coord of the projected vertex
         proj_mat[1, 1] = 1.0 / scale  # Scale of the y coord of the projected vertex
         # Z clipping planes
@@ -122,7 +160,7 @@ class Mat:
 
     def translate(self, vector):
         """
-        Returns the matrix translated by the given amounts along the 3 axes
+        Returns the matrix given by translating this matrix by the given vector
         """
         trans_mat = Mat.identity()
         trans_mat[3, 0] = vector[0]
@@ -130,12 +168,21 @@ class Mat:
         trans_mat[3, 2] = vector[2]
         return self.multiply(trans_mat)
 
-    def rotate(self, degrees, x, y, z):
+    def rotate(self, quaternion):
         """
-        Returns the matrix rotated by the given degrees about the 3 axes
+        Returns the matrix given by rotating this matrix by the given quaternion
         """
+        w, x, y, z = [quaternion[i] for i in range(4)]
         rot_mat = Mat.identity()
-        # TODO
+        rot_mat[0, 0] = 1 - 2 * (y * y + z * z)
+        rot_mat[0, 1] = 2 * (x * y - w * z)
+        rot_mat[0, 2] = 2 * (x * z + w * y)
+        rot_mat[1, 0] = 2 * (x * y + w * z)
+        rot_mat[1, 1] = 1 - 2 * (x * x + z * z)
+        rot_mat[1, 2] = 2 * (y * z - w * x)
+        rot_mat[2, 0] = 2 * (x * z - w * y)
+        rot_mat[2, 1] = 2 * (y * z + w * x)
+        rot_mat[2, 2] = 1 - 2 * (x * x + y * y)
         return self.multiply(rot_mat)
 
     def multiply(self, matrix):
