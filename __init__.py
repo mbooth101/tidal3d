@@ -164,10 +164,9 @@ class Renderer(App):
 
             # Write to framebuffer
             if self.render_mode == MODE_POINTS:
-                for coord in coords:
-                    self.fb.pixel(coord, WHITE)
+                self.fb.triangle_points(coords[0], coords[1], coords[2], WHITE)
             elif self.render_mode == MODE_WIREFRAME:
-                self.fb.triangle(coords[0], coords[1], coords[2], WHITE)
+                self.fb.triangle_lines(coords[0], coords[1], coords[2], WHITE)
 
 
 # Set the entrypoint for the app launcher

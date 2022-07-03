@@ -38,15 +38,17 @@ class BufferedDisplay:
                 y += size
             x += size
 
-    def pixel(self, p, colour):
+    def triangle_points(self, p1, p2, p3, colour):
         """
-        Set a pixel in the framebuffer at the given coords to the given colour
+        Draw a triangle of points on the framebuffer between the three given coords of the given colour
         """
-        self.fb.pixel(int(p[0]), int(p[1]), colour)
+        self.fb.pixel(int(p1[0]), int(p1[1]), colour)
+        self.fb.pixel(int(p2[0]), int(p2[1]), colour)
+        self.fb.pixel(int(p3[0]), int(p3[1]), colour)
 
-    def triangle(self, p1, p2, p3, colour):
+    def triangle_lines(self, p1, p2, p3, colour):
         """
-        Draw a triangle on the framebuffer between the three given coords of the given colour
+        Draw a wireframe triangle on the framebuffer between the three given coords of the given colour
         """
         self.fb.line(int(p1[0]), int(p1[1]), int(p2[0]), int(p2[1]), colour)
         self.fb.line(int(p2[0]), int(p2[1]), int(p3[0]), int(p3[1]), colour)
