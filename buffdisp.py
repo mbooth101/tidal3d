@@ -46,14 +46,6 @@ class BufferedDisplay:
         self.fb.pixel(int(p2[0]), int(p2[1]), colour)
         self.fb.pixel(int(p3[0]), int(p3[1]), colour)
 
-    def triangle_lines(self, p1, p2, p3, colour):
-        """
-        Draw a wireframe triangle on the framebuffer between the three given coords of the given colour
-        """
-        self.fb.line(int(p1[0]), int(p1[1]), int(p2[0]), int(p2[1]), colour)
-        self.fb.line(int(p2[0]), int(p2[1]), int(p3[0]), int(p3[1]), colour)
-        self.fb.line(int(p3[0]), int(p3[1]), int(p1[0]), int(p1[1]), colour)
-
     def blit(self):
         """
         Send the framebuffer to the display

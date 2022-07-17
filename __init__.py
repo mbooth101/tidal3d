@@ -8,6 +8,7 @@ from .math3d import Vec, Mat, Quat
 
 MODE_POINTS = 0
 MODE_WIREFRAME = 1
+MODE_SOLID = 2
 
 class Mesh:
 
@@ -15,6 +16,7 @@ class Mesh:
         # Use a default mesh of a cube
         self.vertices = [Vec([-10, -10, 10]), Vec([-10, 10, 10]), Vec([10, 10, 10]), Vec([10, -10, 10]), Vec([-10, -10, -10]), Vec([-10, 10, -10]), Vec([10, 10, -10]), Vec([10, -10, -10])]
         self.indices = [[0, 1, 2], [2, 3, 0], [1, 5, 6], [6, 2, 1], [5, 4, 7], [7, 6, 5], [4, 0, 3], [3, 7, 4], [3, 2, 6], [6, 7, 3], [0, 5, 1], [0, 4, 5]]
+        self.colours = [color565(255, 0, 0), color565(0, 255, 0), color565(0, 0, 255), color565(255, 0, 255), color565(255, 255, 0), color565(0, 255, 255), color565(255, 0, 0), color565(0, 255, 0), color565(0, 0, 255), color565(255, 0, 255), color565(255, 255, 0), color565(0, 255, 255)]
 
         # Position and linear velocity
         self.position = Vec([0, 0, 0])
@@ -75,6 +77,8 @@ class Renderer(App):
         if self.render_mode == MODE_POINTS:
             self.render_mode = MODE_WIREFRAME
         elif self.render_mode == MODE_WIREFRAME:
+            self.render_mode = MODE_SOLID
+        elif self.render_mode == MODE_SOLID:
             self.render_mode = MODE_POINTS
 
     def button_left(self):
@@ -94,7 +98,7 @@ class Renderer(App):
         return not self.buttons._callbacks[_num(pin)].state
 
     def loop(self):
-        start_t = time.ticks_ms()
+        start_t = time.ticks_us()
 
         # Update the simulation
         self.update()
@@ -104,7 +108,7 @@ class Renderer(App):
         self.render_scene()
         self.fb.blit()
 
-        end_t = time.ticks_ms()
+        end_t = time.ticks_us()
 
         # Show the time it took to render the scene
         print(time.ticks_diff(end_t, start_t))
@@ -151,7 +155,10 @@ class Renderer(App):
             verts.append(v_ndc)
 
         # Render faces
-        for face in self.mesh.indices:
+        for face_idx in range(len(self.mesh.indices)):
+            face = self.mesh.indices[face_idx]
+            colour = self.mesh.colours[face_idx]
+
             # If a face's projected vertices all lie outside the viewable space (x or y is more than 1
             # or less then -1) then we can cull it because it will not be seen; if at least one vertex
             # can be seen, we'll render the partial face
@@ -170,13 +177,15 @@ class Renderer(App):
             for face_vert in face_verts:
                 x = (face_vert[0] + 1) * 0.5 * self.fb.width
                 y = (1 - (face_vert[1] + 1) * 0.5) * self.fb.height
-                coords.append([x, y])
+                coords.append((int(x), int(y)))
 
             # Write to framebuffer
             if self.render_mode == MODE_POINTS:
                 self.fb.triangle_points(coords[0], coords[1], coords[2], WHITE)
             elif self.render_mode == MODE_WIREFRAME:
-                self.fb.triangle_lines(coords[0], coords[1], coords[2], WHITE)
+                self.fb.fb.polygon([coords[0], coords[1], coords[2]], 0, 0, colour)
+            elif self.render_mode == MODE_SOLID:
+                self.fb.fb.fill_polygon([coords[0], coords[1], coords[2]], 0, 0, colour)
 
 
 # Set the entrypoint for the app launcher
