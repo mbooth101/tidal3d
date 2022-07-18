@@ -44,6 +44,12 @@ class Vec:
         """
         return Vec([self[0] + vector[0], self[1] + vector[1], self[2] + vector[2]])
 
+    def subtract(self, vector):
+        """
+        Returns the vector given by subtracting the given vector from this vector
+        """
+        return Vec([self[0] - vector[0], self[1] - vector[1], self[2] - vector[2]])
+
     def multiply(self, matrix):
         """
         Returns the vector given by multiplying this vector by the given matrix

@@ -171,21 +171,26 @@ class Renderer(App):
             if not visible:
                 continue
 
-            # Now we take the x,y components of the normalised device coords and convert them into
-            # screen coords, obviously inverting y because screens tend to have 0,0 at the top left
-            coords = []
-            for face_vert in face_verts:
-                x = (face_vert[0] + 1) * 0.5 * self.fb.width
-                y = (1 - (face_vert[1] + 1) * 0.5) * self.fb.height
-                coords.append((int(x), int(y)))
+            # Generate sceen coordinates for face vertices
+            coords = [self.ndc_to_screen(x) for x in face_verts]
 
-            # Write to framebuffer
+            # Draw to the framebuffer using screen coordinates
             if self.render_mode == MODE_POINTS:
                 self.fb.triangle_points(coords[0], coords[1], coords[2], WHITE)
             elif self.render_mode == MODE_WIREFRAME:
                 self.fb.fb.polygon([coords[0], coords[1], coords[2]], 0, 0, colour)
             elif self.render_mode == MODE_SOLID:
                 self.fb.fb.fill_polygon([coords[0], coords[1], coords[2]], 0, 0, colour)
+
+    def ndc_to_screen(self, ndc):
+        """
+        Convert a normalised device coordinate (NDC) to a screen coordinate, if an NDC's x and y
+        components both lie between -1 and 1, it will result in a valid on-screen pixel location
+        obviously we invert the y here because screens tend to have the origin 0,0 at the top left
+        """
+        x = (ndc[0] + 1) * 0.5 * self.fb.width
+        y = (1 - (ndc[1] + 1) * 0.5) * self.fb.height
+        return (int(x), int(y))
 
 
 # Set the entrypoint for the app launcher
