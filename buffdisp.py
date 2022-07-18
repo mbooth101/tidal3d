@@ -38,13 +38,12 @@ class BufferedDisplay:
                 y += size
             x += size
 
-    def triangle_points(self, p1, p2, p3, colour):
+    def points(self, points, colour):
         """
-        Draw a triangle of points on the framebuffer between the three given coords of the given colour
+        Draw points on the framebuffer for the given coords in the given colour
         """
-        self.fb.pixel(int(p1[0]), int(p1[1]), colour)
-        self.fb.pixel(int(p2[0]), int(p2[1]), colour)
-        self.fb.pixel(int(p3[0]), int(p3[1]), colour)
+        for p in points:
+            self.fb.pixel(p[0], p[1], colour)
 
     def blit(self):
         """
