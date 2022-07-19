@@ -91,7 +91,7 @@ class Renderer(App):
         end_t = time.ticks_us()
 
         # Show the time it took to render the scene
-        print(time.ticks_diff(end_t, start_t))
+        print("{} ms".format(time.ticks_diff(end_t, start_t) / 1000))
 
         self.timer = self.after(1, self.loop)
 
@@ -114,24 +114,20 @@ class Renderer(App):
     def render_scene(self):
         # Transform all vertices to their positions in the world by multiplying by the model transformation
         # matrix, which is specific to the mesh being rendered (create world coordinates)
-        m_model = Mat.identity().rotate(self.mesh.orientation).translate(self.mesh.position)
+        # Note that translating doesn't mean anything for vectors, so normals are rotated only, and vertices
+        # are both rotated and translated
+        m_model = Mat.identity().rotate(self.mesh.orientation)
+        norms = [v.multiply(m_model) for v in self.mesh.normals]
+        m_model = m_model.translate(self.mesh.position)
         verts = [v.multiply(m_model) for v in self.mesh.vertices]
 
         # Generate a list of faces and their projected vertices for rendering
         face_indices = []
         face_colours = []
         projected_verts = {}
-        for indices, colour_index in zip(self.mesh.indices, self.mesh.colour_indices):
-            a = verts[indices[0]]
-            b = verts[indices[1]]
-            c = verts[indices[2]]
-
-            # Calculate the normal vector of the face, this tells us what direction the front of
-            # the face is pointing
-            normal = a.subtract(b).cross(b.subtract(c)).normalise()
-
+        for indices, col_index, norm_index in zip(self.mesh.vert_indices, self.mesh.col_indices, self.mesh.norm_indices):
             # Calculate the point in the centre of the face
-            centre = a.add(b).add(c).scale(1 / 3)
+            centre = verts[indices[0]].add(verts[indices[1]]).add(verts[indices[2]]).scale(0.33333)
 
             # Calculate the vector of the direction to the camera from the centre of the face
             camera = Vec([0, 0, 35]).subtract(centre).normalise()
@@ -140,11 +136,11 @@ class Renderer(App):
             # camera; if the angle between the normal vector and the camera vector is greater than
             # 90 degrees then we are seeing the back of the face, and if we are culling back faces
             # then we can avoid rendering it
-            dot = normal.dot(camera)
+            dot = norms[norm_index].dot(camera)
             if (dot < 0 and self.render_mode >= MODE_WIREFRAME_BACK_FACE_CULLING):
                 continue
             face_indices.append(indices)
-            face_colours.append(colour_index)
+            face_colours.append(col_index)
 
             # Since the face is going to be rendered, let's go ahead and project its vertices
             for index in indices:
@@ -155,12 +151,9 @@ class Renderer(App):
                 if index in projected_verts:
                     continue
 
-                # Start with the world coordinate indexed by the face
-                vert_world = verts[index]
-
                 # Transform the world coorinates into camera coordinates by multiplying by the
                 # camera view matrix, allowing it be viewed from the camera's point of view
-                vert_cam = vert_world.multiply(self.m_view)
+                vert_cam = verts[index].multiply(self.m_view)
 
                 # Project the vertex onto a 2D plane by multiplying by the projection matrix, this
                 # yields normalised device coords where all points that lie within the viewable space

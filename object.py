@@ -6,13 +6,17 @@ from .math3d import Vec, Mat, Quat
 class Mesh:
 
     def __init__(self, filename):
-        # Face vertices
+        # A face is made of 3 vertices, a normal vector, and a material
         self.vertices = []
-        self.indices = []
-
-        # Face colours
+        self.normals = []
         self.colours = []
-        self.colour_indices = []
+
+        # To prevent duplication of data (and therefore saving on expensive memory and calculation
+        # time) we store each unique vertex, normal and material once and instead keep per-face
+        # indices into the above lists
+        self.vert_indices = []
+        self.norm_indices = []
+        self.col_indices = []
 
         # Load mesh and material data
         self._load(filename)
@@ -31,7 +35,18 @@ class Mesh:
         op.parse("apps/TiDAL3D/" + filename)
 
         self.vertices = [Vec(v) for v in op.vertices]
-        self.indices = [f['indices'] for f in op.faces]
+        self.vert_indices = [f['indices'] for f in op.faces]
+
+        # Pre-calculate face normal vectors, a normal is the direction exactly perpendicular to
+        # the plane of the face, the direction the front of the face is pointing
+        for face in self.vert_indices:
+            a = self.vertices[face[0]]
+            b = self.vertices[face[1]]
+            c = self.vertices[face[2]]
+            normal = a.subtract(b).cross(b.subtract(c)).normalise()
+            if normal not in self.normals:
+                self.normals.append(normal)
+            self.norm_indices.append(self.normals.index(normal))
 
         # If the geometry has materials, let's also parse the accompanying material library file
         if op.mat_lib:
@@ -39,18 +54,18 @@ class Mesh:
             mp.parse("apps/TiDAL3D/" + op.mat_lib)
 
             # Use the material's diffuse colour for the colour of the faces, pre-computing the
-            # 16-bit 565 value from RGB values that we our display needs
-            self.colour_indices = [0] * len(self.indices)
+            # 16-bit 565 value that our display needs from RGB values
+            self.col_indices = [0] * len(self.vert_indices)
             for material in mp.materials:
                 rgb = material['diffuse']
                 self.colours.append(color565(rgb[0], rgb[1], rgb[2]))
                 for i in range(len(op.faces)):
                     if op.faces[i]['material'] == material['name']:
-                        self.colour_indices[i] = len(self.colours) - 1
+                        self.col_indices[i] = len(self.colours) - 1
         else:
             # Just default to all white faces if no materials specified
             self.colours.append(WHITE)
-            self.colour_indices = [0] * len(self.indices)
+            self.col_indices = [0] * len(self.vert_indices)
 
     def update(self):
         # Move our position by our velocity

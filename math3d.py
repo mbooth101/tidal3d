@@ -16,6 +16,12 @@ class Vec:
     def __setitem__(self, index, value):
         self._v[index] = value
 
+    def __eq__(self, other):
+        return self._v == other._v
+
+    def __str__(self):
+        return 'Vec({}, {}, {})'.format(self._v[0], self._v[1], self._v[2])
+
     def mag(self):
         """
         Returns the magnitude of the vector as a scalar value
@@ -94,6 +100,12 @@ class Quat:
 
     def __setitem__(self, index, value):
         self._q[index] = value
+
+    def __eq__(self, other):
+        return self._q == other._q
+
+    def __str__(self):
+        return 'Quat({}, {}, {}, {})'.format(self._q[0], self._q[1], self._q[2], self._q[3])
 
     def rotate(self, angle, vector):
         """
