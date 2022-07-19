@@ -5,35 +5,12 @@ import time
 
 from .buffdisp import BufferedDisplay
 from .math3d import Vec, Mat, Quat
+from .object import Mesh
 
 MODE_POINT_CLOUD = 0
 MODE_WIREFRAME_FULL = 1
 MODE_WIREFRAME_BACK_FACE_CULLING = 2
 MODE_SOLID = 3
-
-class Mesh:
-
-    def __init__(self, vertices=None, indices=None):
-        # Use a default mesh of a cube
-        self.vertices = [Vec([-10, -10, 10]), Vec([-10, 10, 10]), Vec([10, 10, 10]), Vec([10, -10, 10]), Vec([-10, -10, -10]), Vec([-10, 10, -10]), Vec([10, 10, -10]), Vec([10, -10, -10])]
-        self.indices = [[0, 1, 2], [2, 3, 0], [1, 5, 6], [6, 2, 1], [5, 4, 7], [7, 6, 5], [4, 0, 3], [3, 7, 4], [3, 2, 6], [6, 7, 3], [0, 5, 1], [0, 4, 5]]
-        self.colours = [color565(255, 0, 0), color565(255, 0, 0), color565(0, 255, 0), color565(0, 255, 0), color565(0, 0, 255), color565(0, 0, 255), color565(255, 0, 255), color565(255, 0, 255), color565(255, 255, 0), color565(255, 255, 0), color565(0, 255, 255), color565(0, 255, 255)]
-
-        # Position and linear velocity
-        self.position = Vec([0, 0, 0])
-        self.velocity = Vec([0, 0, 0])
-
-        # Orientation and angular velocity
-        self.orientation = Quat([1, 0, 0, 0])
-        self.angular = Vec([0, 0, 0])
-
-    def update(self):
-        # Move our position by our velocity
-        self.position = self.position.add(self.velocity)
-        # Rotate ourselves around the axis
-        degrees = self.angular.mag()
-        axis = self.angular.normalise()
-        self.orientation = self.orientation.rotate(degrees, axis)
 
 
 class Renderer(App):
@@ -54,8 +31,8 @@ class Renderer(App):
         # Camera view transformation matrix
         self.m_view = Mat.identity().translate(Vec([0, 0, -35]))
 
-        # Model to render
-        self.mesh = Mesh()
+        # Model to render, default to the cube
+        self.mesh = Mesh("cube.obj")
 
     def on_activate(self):
         super().on_activate()
@@ -144,10 +121,10 @@ class Renderer(App):
         face_indices = []
         face_colours = []
         projected_verts = {}
-        for indices, colour in zip(self.mesh.indices, self.mesh.colours):
-            a = verts[indices[2]]
+        for indices, colour_index in zip(self.mesh.indices, self.mesh.colour_indices):
+            a = verts[indices[0]]
             b = verts[indices[1]]
-            c = verts[indices[0]]
+            c = verts[indices[2]]
 
             # Calculate the normal vector of the face, this tells us what direction the front of
             # the face is pointing
@@ -167,7 +144,7 @@ class Renderer(App):
             if (dot < 0 and self.render_mode >= MODE_WIREFRAME_BACK_FACE_CULLING):
                 continue
             face_indices.append(indices)
-            face_colours.append(colour)
+            face_colours.append(colour_index)
 
             # Since the face is going to be rendered, let's go ahead and project its vertices
             for index in indices:
@@ -195,7 +172,7 @@ class Renderer(App):
                 projected_verts[index] = vert_ndc
 
         # Render faces
-        for indices, colour in zip(face_indices, face_colours):
+        for indices, colour_index in zip(face_indices, face_colours):
 
             # If a face's projected vertices all lie outside the viewable space (x or y is more than 1
             # or less then -1) then we can cull it because it will not be seen; if at least one vertex
@@ -216,9 +193,9 @@ class Renderer(App):
             if self.render_mode == MODE_POINT_CLOUD:
                 self.fb.points(coords, WHITE)
             elif self.render_mode == MODE_WIREFRAME_FULL or self.render_mode == MODE_WIREFRAME_BACK_FACE_CULLING:
-                self.fb.fb.polygon(coords, 0, 0, colour)
-            elif self.render_mode == MODE_SOLID:
-                self.fb.fb.fill_polygon(coords, 0, 0, colour)
+                self.fb.fb.polygon(coords, 0, 0, self.mesh.colours[colour_index])
+            elif self.render_mode >= MODE_SOLID:
+                self.fb.fb.fill_polygon(coords, 0, 0, self.mesh.colours[colour_index])
 
     def ndc_to_screen(self, ndc):
         """
