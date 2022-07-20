@@ -122,6 +122,7 @@ class Renderer(App):
         # Show some instructions on screen
         self.fb.fb.text("A = RENDER MODE", 0, 0, WHITE)
         self.fb.fb.text("B = NEXT OBJECT", 0, 10, WHITE)
+        self.fb.fb.text("JOY = ROTATE", 0, 20, WHITE)
 
     def render_scene(self):
         # Transform all vertices to their positions in the world by multiplying by the model transformation
