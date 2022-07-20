@@ -111,6 +111,7 @@ class ObjectParser(ParserInterface):
 
     def __init__(self):
         self.mat_lib = None
+        self.current_mat = None
         self.vertices = []
         self.faces = []
 

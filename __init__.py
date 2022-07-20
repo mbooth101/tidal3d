@@ -22,23 +22,25 @@ class Renderer(App):
         # all at once when we're ready
         self.fb = BufferedDisplay(display)
 
-        # Initial render mode, see the constants above for other modes
+        # Initial render mode and object, see the constants above for other modes
         self.render_mode = MODE_POINT_CLOUD
+        self.render_object = 'cube.obj'
 
         # Projection matrix
         self.m_proj = Mat.perspective(90, self.fb.width / self.fb.height,  0.1, 100)
 
         # Camera view transformation matrix
-        self.m_view = Mat.identity().translate(Vec([0, 0, -35]))
+        self.m_view = Mat.identity().translate(Vec([0, -10, -35]))
 
-        # Model to render, default to the cube
-        self.mesh = Mesh("cube.obj")
+        # Model to render
+        self.mesh = Mesh(self.render_object)
 
     def on_activate(self):
         super().on_activate()
 
         # Register input callbacks
         self.buttons.on_press(BUTTON_A, self.select_mode)
+        self.buttons.on_press(BUTTON_B, self.select_object)
         self.buttons.on_press(JOY_UP, self.button_up, False)
         self.buttons.on_press(JOY_DOWN, self.button_down, False)
         self.buttons.on_press(JOY_LEFT, self.button_left, False)
@@ -60,6 +62,15 @@ class Renderer(App):
             self.render_mode = MODE_SOLID
         elif self.render_mode == MODE_SOLID:
             self.render_mode = MODE_POINT_CLOUD
+
+    def select_object(self):
+        # Cycle through objects to render
+        if self.render_object == 'cube.obj':
+            self.render_object = 'teapot.obj'
+        elif self.render_object == 'teapot.obj':
+            self.render_object = 'cube.obj'
+        # Reload the model
+        self.mesh = Mesh(self.render_object)
 
     def button_left(self):
         self.mesh.angular[1] = 3
@@ -109,7 +120,8 @@ class Renderer(App):
         self.fb.fb.fill_rect(0, 0, self.fb.width, self.fb.height, BLACK)
 
         # Show some instructions on screen
-        self.fb.fb.text("A = Render Mode", 0, 0, WHITE)
+        self.fb.fb.text("A = RENDER MODE", 0, 0, WHITE)
+        self.fb.fb.text("B = NEXT OBJECT", 0, 10, WHITE)
 
     def render_scene(self):
         # Transform all vertices to their positions in the world by multiplying by the model transformation
@@ -130,7 +142,7 @@ class Renderer(App):
             centre = verts[indices[0]].add(verts[indices[1]]).add(verts[indices[2]]).scale(0.33333)
 
             # Calculate the vector of the direction to the camera from the centre of the face
-            camera = Vec([0, 0, 35]).subtract(centre).normalise()
+            camera = Vec([0, 10, 35]).subtract(centre).normalise()
 
             # Now we use the dot product to determine if the front of the face is pointing at the
             # camera; if the angle between the normal vector and the camera vector is greater than
