@@ -64,6 +64,9 @@ class Vec:
         y = self[0] * matrix[0, 1] + self[1] * matrix[1, 1] + self[2] * matrix[2, 1] + matrix[3, 1]
         z = self[0] * matrix[0, 2] + self[1] * matrix[1, 2] + self[2] * matrix[2, 2] + matrix[3, 2]
         w = self[0] * matrix[0, 3] + self[1] * matrix[1, 3] + self[2] * matrix[2, 3] + matrix[3, 3]
+        # Avoid doing the division if it wouldn't change the result
+        if w == 1:
+            return Vec([x, y, z])
         return Vec([x / w, y / w, z / w])
 
     def dot(self, vector):
@@ -216,6 +219,8 @@ class Mat:
         # columns on the RHS
         for i in range(4):  # num of rows on the LHS
             for j in range(4):  # num of cols on the RHS
-                for k in range(4):  # num of rows on the RHS
-                    result[i][j] += self[i, k] * matrix[k, j]
+                result[i][j] += self[i, 0] * matrix[0, j]
+                result[i][j] += self[i, 1] * matrix[1, j]
+                result[i][j] += self[i, 2] * matrix[2, j]
+                result[i][j] += self[i, 3] * matrix[3, j]
         return Mat(result)

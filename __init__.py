@@ -165,6 +165,7 @@ class Renderer(App):
                 projected_verts[index] = vert_ndc
 
         # Render faces
+        framebuffer = self.fb.fb
         for indices, colour_index in zip(face_indices, face_colours):
 
             # If a face's projected vertices all lie outside the viewable space (x or y is more than 1
@@ -184,11 +185,13 @@ class Renderer(App):
 
             # Draw to the framebuffer using screen coordinates
             if self.render_mode == MODE_POINT_CLOUD:
-                self.fb.points(coords, WHITE)
+                framebuffer.pixel(coords[0][0], coords[0][1], WHITE)
+                framebuffer.pixel(coords[1][0], coords[1][1], WHITE)
+                framebuffer.pixel(coords[2][0], coords[2][1], WHITE)
             elif self.render_mode == MODE_WIREFRAME_FULL or self.render_mode == MODE_WIREFRAME_BACK_FACE_CULLING:
-                self.fb.fb.polygon(coords, 0, 0, self.mesh.colours[colour_index])
+                framebuffer.polygon(coords, 0, 0, self.mesh.colours[colour_index])
             elif self.render_mode >= MODE_SOLID:
-                self.fb.fb.fill_polygon(coords, 0, 0, self.mesh.colours[colour_index])
+                framebuffer.fill_polygon(coords, 0, 0, self.mesh.colours[colour_index])
 
     def ndc_to_screen(self, ndc):
         """

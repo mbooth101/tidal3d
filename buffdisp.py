@@ -38,13 +38,6 @@ class BufferedDisplay:
                 y += size
             x += size
 
-    def points(self, points, colour):
-        """
-        Draw points on the framebuffer for the given coords in the given colour
-        """
-        for p in points:
-            self.fb.pixel(p[0], p[1], colour)
-
     def blit(self):
         """
         Send the framebuffer to the display
