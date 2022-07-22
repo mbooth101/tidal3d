@@ -186,7 +186,7 @@ class Renderer(App):
                 projected_verts[index] = vert_ndc
 
         # Render faces
-        framebuffer = self.fb.fb
+        framebuffer = self.fb
         for indices, col_index, norm_index in zip(face_indices, face_colours, face_normals):
 
             # If a face's projected vertices all lie outside the viewable space (x or y is more than 1
@@ -217,21 +217,13 @@ class Renderer(App):
                 rgb = [max(int(c * -dot), 8) for c in self.mesh.colours[col_index]]
                 colour = color565(rgb[0], rgb[1], rgb[2])
 
-            # The byte-order of the framebuffer is opposite to that of the display, so we need to
-            # swap the endianness of the color value
-            b1 = colour & 0xff
-            b2 = (colour >> 8) & 0xff
-            colour = (b1<<8) | b2
-
             # Draw to the framebuffer using screen coordinates
             if self.render_mode == MODE_POINT_CLOUD:
-                framebuffer.pixel(coords[0][0], coords[0][1], colour)
-                framebuffer.pixel(coords[1][0], coords[1][1], colour)
-                framebuffer.pixel(coords[2][0], coords[2][1], colour)
+                framebuffer.points(coords, colour)
             elif self.render_mode == MODE_WIREFRAME_FULL or self.render_mode == MODE_WIREFRAME_BACK_FACE_CULLING:
-                framebuffer.polygon(coords, 0, 0, colour)
+                framebuffer.polygon(coords, colour)
             elif self.render_mode >= MODE_SOLID:
-                framebuffer.fill_polygon(coords, 0, 0, colour)
+                framebuffer.fill_polygon(coords, colour)
 
     def ndc_to_screen(self, ndc):
         """
