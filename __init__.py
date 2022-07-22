@@ -24,7 +24,7 @@ class Renderer(App):
         self.fb = BufferedDisplay(display)
 
         # Initial render mode and object, see the constants above for other modes
-        self.render_mode = MODE_POINT_CLOUD
+        self.render_mode = MODE_SOLID_SHADED
         self.render_object = 'cube.obj'
 
         # Projection matrix
@@ -58,16 +58,9 @@ class Renderer(App):
 
     def select_mode(self):
         # Cycle through the render modes
-        if self.render_mode == MODE_POINT_CLOUD:
-            self.render_mode = MODE_WIREFRAME_FULL
-        elif self.render_mode == MODE_WIREFRAME_FULL:
-            self.render_mode = MODE_WIREFRAME_BACK_FACE_CULLING
-        elif self.render_mode == MODE_WIREFRAME_BACK_FACE_CULLING:
-            self.render_mode = MODE_SOLID
-        elif self.render_mode == MODE_SOLID:
-            self.render_mode = MODE_SOLID_SHADED
-        elif self.render_mode == MODE_SOLID_SHADED:
-            self.render_mode = MODE_POINT_CLOUD
+        self.render_mode += 1
+        if self.render_mode > MODE_SOLID_SHADED:
+            self.render_mode = 0
 
     def select_object(self):
         # Cycle through objects to render
