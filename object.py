@@ -1,5 +1,3 @@
-from st7789 import color565, WHITE
-
 from .math3d import Vec, Mat, Quat
 
 
@@ -53,18 +51,16 @@ class Mesh:
             mp = MaterialParser()
             mp.parse("apps/TiDAL3D/" + op.mat_lib)
 
-            # Use the material's diffuse colour for the colour of the faces, pre-computing the
-            # 16-bit 565 value that our display needs from RGB values
+            # Use the material's diffuse colour for the colour of the faces
             self.col_indices = [0] * len(self.vert_indices)
             for material in mp.materials:
-                rgb = material['diffuse']
-                self.colours.append(color565(rgb[0], rgb[1], rgb[2]))
+                self.colours.append(material['diffuse'])
                 for i in range(len(op.faces)):
                     if op.faces[i]['material'] == material['name']:
                         self.col_indices[i] = len(self.colours) - 1
         else:
             # Just default to all white faces if no materials specified
-            self.colours.append(WHITE)
+            self.colours.append([255, 255, 255])
             self.col_indices = [0] * len(self.vert_indices)
 
     def update(self):

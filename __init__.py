@@ -1,6 +1,6 @@
-from tidal import *
 from app import App
 from buttons import _num
+from tidal import *
 import time
 
 from .buffdisp import BufferedDisplay
@@ -11,6 +11,7 @@ MODE_POINT_CLOUD = 0
 MODE_WIREFRAME_FULL = 1
 MODE_WIREFRAME_BACK_FACE_CULLING = 2
 MODE_SOLID = 3
+MODE_SOLID_SHADED = 4
 
 
 class Renderer(App):
@@ -34,6 +35,9 @@ class Renderer(App):
 
         # Model to render
         self.mesh = Mesh(self.render_object)
+
+        # Lighting vector
+        self.light = Vec([-1,-1,-1]).normalise()
 
     def on_activate(self):
         super().on_activate()
@@ -61,6 +65,8 @@ class Renderer(App):
         elif self.render_mode == MODE_WIREFRAME_BACK_FACE_CULLING:
             self.render_mode = MODE_SOLID
         elif self.render_mode == MODE_SOLID:
+            self.render_mode = MODE_SOLID_SHADED
+        elif self.render_mode == MODE_SOLID_SHADED:
             self.render_mode = MODE_POINT_CLOUD
 
     def select_object(self):
@@ -137,6 +143,7 @@ class Renderer(App):
         # Generate a list of faces and their projected vertices for rendering
         face_indices = []
         face_colours = []
+        face_normals = []
         projected_verts = {}
         for indices, col_index, norm_index in zip(self.mesh.vert_indices, self.mesh.col_indices, self.mesh.norm_indices):
             # Calculate the point in the centre of the face
@@ -154,6 +161,7 @@ class Renderer(App):
                 continue
             face_indices.append(indices)
             face_colours.append(col_index)
+            face_normals.append(norm_index)
 
             # Since the face is going to be rendered, let's go ahead and project its vertices
             for index in indices:
@@ -179,7 +187,7 @@ class Renderer(App):
 
         # Render faces
         framebuffer = self.fb.fb
-        for indices, colour_index in zip(face_indices, face_colours):
+        for indices, col_index, norm_index in zip(face_indices, face_colours, face_normals):
 
             # If a face's projected vertices all lie outside the viewable space (x or y is more than 1
             # or less then -1) then we can cull it because it will not be seen; if at least one vertex
@@ -196,15 +204,34 @@ class Renderer(App):
             # Generate sceen coordinates for face vertices
             coords = [self.ndc_to_screen(x) for x in face_verts]
 
+            colour = 0xFFFF
+            if self.render_mode > MODE_POINT_CLOUD and self.render_mode < MODE_SOLID_SHADED:
+                # Solid, unshaded colour
+                rgb = self.mesh.colours[col_index]
+                colour = color565(rgb[0], rgb[1], rgb[2])
+            elif self.render_mode >= MODE_SOLID_SHADED:
+                # Scale the color by the angle of incidence of the light vector so a face appears
+                # more brightly lit the closer to orthogonal it is, but clamp to a minimum value
+                # so unlit faces are not totally invisible, simulating a bit of ambient light
+                dot = norms[norm_index].dot(self.light)
+                rgb = [max(int(c * -dot), 8) for c in self.mesh.colours[col_index]]
+                colour = color565(rgb[0], rgb[1], rgb[2])
+
+            # The byte-order of the framebuffer is opposite to that of the display, so we need to
+            # swap the endianness of the color value
+            b1 = colour & 0xff
+            b2 = (colour >> 8) & 0xff
+            colour = (b1<<8) | b2
+
             # Draw to the framebuffer using screen coordinates
             if self.render_mode == MODE_POINT_CLOUD:
-                framebuffer.pixel(coords[0][0], coords[0][1], WHITE)
-                framebuffer.pixel(coords[1][0], coords[1][1], WHITE)
-                framebuffer.pixel(coords[2][0], coords[2][1], WHITE)
+                framebuffer.pixel(coords[0][0], coords[0][1], colour)
+                framebuffer.pixel(coords[1][0], coords[1][1], colour)
+                framebuffer.pixel(coords[2][0], coords[2][1], colour)
             elif self.render_mode == MODE_WIREFRAME_FULL or self.render_mode == MODE_WIREFRAME_BACK_FACE_CULLING:
-                framebuffer.polygon(coords, 0, 0, self.mesh.colours[colour_index])
+                framebuffer.polygon(coords, 0, 0, colour)
             elif self.render_mode >= MODE_SOLID:
-                framebuffer.fill_polygon(coords, 0, 0, self.mesh.colours[colour_index])
+                framebuffer.fill_polygon(coords, 0, 0, colour)
 
     def ndc_to_screen(self, ndc):
         """
