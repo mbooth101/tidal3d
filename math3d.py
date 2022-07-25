@@ -22,6 +22,19 @@ class Vec:
     def __str__(self):
         return 'Vec({}, {}, {})'.format(self._v[0], self._v[1], self._v[2])
 
+    @staticmethod
+    def average(vectors):
+        """
+        Returns the vector that is the average of the list of given vectors
+        """
+        x, y, z = (0, 0, 0)
+        for v in vectors:
+            x += v[0]
+            y += v[1]
+            z += v[2]
+        num = len(vectors)
+        return Vec([x / num, y / num, z / num])
+
     def mag(self):
         """
         Returns the magnitude of the vector as a scalar value

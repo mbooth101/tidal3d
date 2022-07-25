@@ -142,7 +142,7 @@ class Renderer(App):
         projected_verts = {}
         for indices, col_index, norm_index in zip(self.mesh.vert_indices, self.mesh.col_indices, self.mesh.norm_indices):
             # Calculate the point in the centre of the face
-            centre = verts[indices[0]].add(verts[indices[1]]).add(verts[indices[2]]).scale(0.33333)
+            centre = Vec.average([verts[indices[0]], verts[indices[1]], verts[indices[2]]])
 
             # Calculate the vector of the direction to the camera from the centre of the face
             camera = self.v_cam.subtract(centre).normalise()
