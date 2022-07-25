@@ -31,6 +31,8 @@ class Renderer(App):
         self.m_proj = Mat.perspective(90, self.fb.width / self.fb.height,  0.1, 100)
 
         # Camera view transformation matrix
+        # TODO a proper camera system
+        self.v_cam = Vec([0, 10, 35])
         self.m_view = Mat.identity().translate(Vec([0, -10, -35]))
 
         # Model to render
@@ -143,7 +145,7 @@ class Renderer(App):
             centre = verts[indices[0]].add(verts[indices[1]]).add(verts[indices[2]]).scale(0.33333)
 
             # Calculate the vector of the direction to the camera from the centre of the face
-            camera = Vec([0, 10, 35]).subtract(centre).normalise()
+            camera = self.v_cam.subtract(centre).normalise()
 
             # Now we use the dot product to determine if the front of the face is pointing at the
             # camera; if the angle between the normal vector and the camera vector is greater than
