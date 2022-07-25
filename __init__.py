@@ -151,11 +151,9 @@ class Renderer(App):
         verts = [v.multiply(m_model) for v in self.mesh.vertices]
 
         # Generate a list of faces and their projected vertices for rendering
-        face_indices = []
-        face_colours = []
-        face_normals = []
+        faces = []
         projected_verts = {}
-        for indices, col_index, norm_index in zip(self.mesh.vert_indices, self.mesh.col_indices, self.mesh.norm_indices):
+        for indices, norm_index, col_index in self.mesh.faces:
             # Calculate the point in the centre of the face
             centre = Vec.average([verts[indices[0]], verts[indices[1]], verts[indices[2]]])
 
@@ -169,9 +167,7 @@ class Renderer(App):
             dot = norms[norm_index].dot(camera)
             if (dot < 0 and self.render_mode >= MODE_WIREFRAME_BACK_FACE_CULLING):
                 continue
-            face_indices.append(indices)
-            face_colours.append(col_index)
-            face_normals.append(norm_index)
+            faces.append((indices, norm_index, col_index))
 
             # Since the face is going to be rendered, let's go ahead and project its vertices
             for index in indices:
@@ -197,7 +193,7 @@ class Renderer(App):
 
         # Render faces
         framebuffer = self.fb
-        for indices, col_index, norm_index in zip(face_indices, face_colours, face_normals):
+        for indices, norm_index, col_index in faces:
 
             # If a face's projected vertices all lie outside the viewable space (x or y is more than 1
             # or less then -1) then we can cull it because it will not be seen; if at least one vertex

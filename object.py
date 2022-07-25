@@ -16,6 +16,10 @@ class Mesh:
         self.norm_indices = []
         self.col_indices = []
 
+        # A face-oriented view into the above index data for convenience
+        # It is a list of (vert_index, norm_index, col_index) tuples
+        self.faces = []
+
         # Load mesh and material data
         self._load(filename)
 
@@ -62,6 +66,9 @@ class Mesh:
             # Just default to all white faces if no materials specified
             self.colours.append([255, 255, 255])
             self.col_indices = [0] * len(self.vert_indices)
+
+        # Create a face-oriented view of index data
+        self.faces = list(zip(self.vert_indices, self.norm_indices, self.col_indices))
 
     def update(self, delta_t):
         # Move our position by our velocity
