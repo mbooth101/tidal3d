@@ -41,6 +41,11 @@ class Renderer(App):
         # Lighting vector
         self.light = Vec([-1,-1,-1]).normalise()
 
+        self.start_t = 0
+        self.accum_t = 0
+        self.frame_counter = 0
+        self.fps = 0
+
     def on_activate(self):
         super().on_activate()
 
@@ -52,6 +57,7 @@ class Renderer(App):
         self.buttons.on_press(JOY_LEFT, self.button_left, False)
         self.buttons.on_press(JOY_RIGHT, self.button_right, False)
 
+        self.start_t = time.ticks_ms()
         self.loop()
 
     def on_deactivate(self):
@@ -74,47 +80,56 @@ class Renderer(App):
         self.mesh = Mesh(self.render_object)
 
     def button_left(self):
-        self.mesh.angular[1] = 3
+        self.mesh.angular[1] = 45
 
     def button_right(self):
-        self.mesh.angular[1] = -3
+        self.mesh.angular[1] = -45
 
     def button_up(self):
-        self.mesh.angular[0] = 3
+        self.mesh.angular[0] = 45
 
     def button_down(self):
-        self.mesh.angular[0] = -3
+        self.mesh.angular[0] = -45
 
     def _get_button_state(self, pin):
         # Buttons are active so invert to make truthy mean pressed, which seems more intuitive
         return not self.buttons._callbacks[_num(pin)].state
 
     def loop(self):
-        start_t = time.ticks_us()
+        last_t = self.start_t
+        self.start_t = time.ticks_ms()
+        delta_t = time.ticks_diff(self.start_t, last_t)
 
         # Update the simulation
-        self.update()
+        self.update(delta_t / 1000)
 
         # Render the scene
         self.render_background()
         self.render_scene()
+        self.render_foreground()
         self.fb.blit()
 
-        end_t = time.ticks_us()
+        # Calculate frames per second
+        self.frame_counter += 1
+        self.accum_t += delta_t
+        if self.accum_t > 1000:
+            self.accum_t -= 1000
+            self.fps = self.frame_counter
+            self.frame_counter = 0
 
-        # Show the time it took to render the scene
-        print("{} ms".format(time.ticks_diff(end_t, start_t) / 1000))
+        # Show the time it took to render the frame
+        print("{} ms".format(delta_t))
 
         self.timer = self.after(1, self.loop)
 
-    def update(self):
+    def update(self, delta_t):
         # Kill velocity if buttons no longer pressed
         if not self._get_button_state(JOY_LEFT) and not self._get_button_state(JOY_RIGHT):
             self.mesh.angular[1] = 0
         if not self._get_button_state(JOY_UP) and not self._get_button_state(JOY_DOWN):
             self.mesh.angular[0] = 0
 
-        self.mesh.update()
+        self.mesh.update(delta_t)
 
     def render_background(self):
         # Just clear the framebuffer by filling it with a solid colour
@@ -219,6 +234,9 @@ class Renderer(App):
                 framebuffer.polygon(coords, colour)
             elif self.render_mode >= MODE_SOLID:
                 framebuffer.fill_polygon(coords, colour)
+
+    def render_foreground(self):
+        self.fb.fb.text("{0:2d} fps".format(self.fps), 0, self.fb.height - 10, WHITE)
 
     def ndc_to_screen(self, ndc):
         """

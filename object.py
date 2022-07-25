@@ -63,13 +63,13 @@ class Mesh:
             self.colours.append([255, 255, 255])
             self.col_indices = [0] * len(self.vert_indices)
 
-    def update(self):
+    def update(self, delta_t):
         # Move our position by our velocity
-        self.position = self.position.add(self.velocity)
+        self.position = self.position.add(self.velocity.scale(delta_t))
         # Rotate ourselves around the axis
         degrees = self.angular.mag()
         axis = self.angular.normalise()
-        self.orientation = self.orientation.rotate(degrees, axis)
+        self.orientation = self.orientation.rotate(degrees * delta_t, axis)
 
 
 class ParserInterface:
