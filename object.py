@@ -34,7 +34,7 @@ class Mesh:
     def _load(self, filename):
         # Parse the geometry file
         op = ObjectParser()
-        op.parse("apps/TiDAL3D/" + filename)
+        op.parse("apps/tidal_3d/" + filename)
 
         self.vertices = [Vec(v) for v in op.vertices]
         self.vert_indices = [f['indices'] for f in op.faces]
@@ -53,7 +53,7 @@ class Mesh:
         # If the geometry has materials, let's also parse the accompanying material library file
         if op.mat_lib:
             mp = MaterialParser()
-            mp.parse("apps/TiDAL3D/" + op.mat_lib)
+            mp.parse("apps/tidal_3d/" + op.mat_lib)
 
             # Use the material's diffuse colour for the colour of the faces
             self.col_indices = [0] * len(self.vert_indices)

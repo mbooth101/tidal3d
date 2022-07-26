@@ -1,6 +1,5 @@
-from functools import reduce
 from math import cos, sin, radians, sqrt, tan
-from mbooth import vec_avg, vec_dot, vec_mult
+from tidal3d import vec_avg, vec_dot, vec_mult
 
 
 class Vec:
