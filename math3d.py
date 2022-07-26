@@ -1,5 +1,6 @@
 from functools import reduce
 from math import cos, sin, radians, sqrt, tan
+from mbooth import vec_avg, vec_dot, vec_mult
 
 
 class Vec:
@@ -27,13 +28,7 @@ class Vec:
         """
         Returns the vector that is the average of the list of given vectors
         """
-        x, y, z = (0, 0, 0)
-        for v in vectors:
-            x += v[0]
-            y += v[1]
-            z += v[2]
-        num = len(vectors)
-        return Vec([x / num, y / num, z / num])
+        return Vec(vec_avg([v._v for v in vectors]))
 
     def mag(self):
         """
@@ -73,25 +68,15 @@ class Vec:
         """
         Returns the vector given by multiplying this vector by the given matrix
         """
-        x = self[0] * matrix[0, 0] + self[1] * matrix[1, 0] + self[2] * matrix[2, 0] + matrix[3, 0]
-        y = self[0] * matrix[0, 1] + self[1] * matrix[1, 1] + self[2] * matrix[2, 1] + matrix[3, 1]
-        z = self[0] * matrix[0, 2] + self[1] * matrix[1, 2] + self[2] * matrix[2, 2] + matrix[3, 2]
-        w = self[0] * matrix[0, 3] + self[1] * matrix[1, 3] + self[2] * matrix[2, 3] + matrix[3, 3]
-        # Avoid doing the division if it wouldn't change the result
-        if w == 1:
-            return Vec([x, y, z])
-        return Vec([x / w, y / w, z / w])
+        result = vec_mult(self._v, matrix._m)
+        return Vec(result)
 
     def dot(self, vector):
         """
         Returns a scalar value of 0 if this vector and the given vector are exactly perpendicular, <0 if the
         angle between them is greater than 90° or >0 if the angle between them is less than 90° (dot product)
         """
-        result = 0
-        for i in range(3):
-            # Micropython does not have math.prod(), so use reduce with a lambda instead
-            result += reduce(lambda a, b: a * b, [v[i] for v in [self, vector]])
-        return result
+        return vec_dot(self._v, vector._v)
 
     def cross(self, vector):
         """
