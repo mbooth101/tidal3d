@@ -1,6 +1,9 @@
 #include "py/runtime.h"
 #include <math.h>
 
+// Pre-computed pi over 180
+#define DEGS_TO_RADS (0.017453)
+
 // Helper to calculate vector magnitude used by v_magnitude and v_normalise
 STATIC mp_float_t magnitude(mp_obj_t *vec, size_t len) {
 	mp_float_t sum = 0;
@@ -240,6 +243,45 @@ STATIC mp_obj_t v_ndc_to_screen(mp_obj_t vector, mp_obj_t width, mp_obj_t height
 }
 STATIC MP_DEFINE_CONST_FUN_OBJ_3(v_ndc_to_screen_obj, v_ndc_to_screen);
 
+/**
+ * Returns the quaternion given by rotating the given quaternion by the given angle of rotation in
+ * degrees around the axis described by the given vector
+ */
+STATIC mp_obj_t q_rotate(mp_obj_t quaternion, mp_obj_t angle, mp_obj_t vector) {
+	size_t len;
+	mp_obj_t *vec, *quat;
+	mp_obj_get_array(quaternion, &len, &quat);
+
+	if (len < 4) {
+		mp_raise_ValueError(MP_ERROR_TEXT("quaternion must be length 4"));
+	}
+	mp_float_t q1w = mp_obj_get_float(quat[0]);
+	mp_float_t q1x = mp_obj_get_float(quat[1]);
+	mp_float_t q1y = mp_obj_get_float(quat[2]);
+	mp_float_t q1z = mp_obj_get_float(quat[3]);
+
+	// Compute a rotation quaternion from the angle and vector
+	mp_obj_get_array(vector, &len, &vec);
+	if (len < 3) {
+		mp_raise_ValueError(MP_ERROR_TEXT("vector must be length 3"));
+	}
+	mp_float_t theta = (mp_obj_get_float(angle) * DEGS_TO_RADS) / 2;
+	mp_float_t factor = sin(theta);
+	mp_float_t q2w = cos(theta);
+	mp_float_t q2x = mp_obj_get_float(vec[0]) * factor;
+	mp_float_t q2y = mp_obj_get_float(vec[1]) * factor;
+	mp_float_t q2z = mp_obj_get_float(vec[2]) * factor;
+
+	// Multiply the given quaternion by the rotation quaternion
+	mp_obj_list_t *result = MP_OBJ_TO_PTR(mp_obj_new_list(4, NULL));
+	result->items[0] = mp_obj_new_float(q1w * q2w - q1x * q2x - q1y * q2y - q1z * q2z);
+	result->items[1] = mp_obj_new_float(q1w * q2x + q1x * q2w + q1y * q2z - q1z * q2y);
+	result->items[2] = mp_obj_new_float(q1w * q2y - q1x * q2z + q1y * q2w + q1z * q2x);
+	result->items[3] = mp_obj_new_float(q1w * q2z + q1x * q2y - q1y * q2x + q1z * q2w);
+	return MP_OBJ_FROM_PTR(result);
+}
+STATIC MP_DEFINE_CONST_FUN_OBJ_3(q_rotate_obj, q_rotate);
+
 STATIC const mp_rom_map_elem_t tidal3d_module_globals_table[] = {
     { MP_ROM_QSTR(MP_QSTR___name__), MP_ROM_QSTR(MP_QSTR_tidal3d) },
     { MP_ROM_QSTR(MP_QSTR_v_magnitude), MP_ROM_PTR(&v_magnitude_obj) },
@@ -252,6 +294,7 @@ STATIC const mp_rom_map_elem_t tidal3d_module_globals_table[] = {
     { MP_ROM_QSTR(MP_QSTR_v_dot), MP_ROM_PTR(&v_dot_obj) },
     { MP_ROM_QSTR(MP_QSTR_v_cross), MP_ROM_PTR(&v_cross_obj) },
     { MP_ROM_QSTR(MP_QSTR_v_ndc_to_screen), MP_ROM_PTR(&v_ndc_to_screen_obj) },
+    { MP_ROM_QSTR(MP_QSTR_q_rotate), MP_ROM_PTR(&q_rotate_obj) },
 };
 STATIC MP_DEFINE_CONST_DICT(tidal3d_module_globals, tidal3d_module_globals_table);
 
