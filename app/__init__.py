@@ -167,7 +167,6 @@ class Renderer(App):
             dot = v_dot(norms[norm_index], camera)
             if (dot < 0 and self.render_mode >= MODE_WIREFRAME_BACK_FACE_CULLING):
                 continue
-            faces.append((indices, norm_index, col_index))
 
             # Since the face is going to be rendered, let's go ahead and project its vertices
             for index in indices:
@@ -191,9 +190,18 @@ class Renderer(App):
                 vert_ndc = v_multiply(vert_cam, self.m_proj._m)
                 projected_verts[index] = vert_ndc
 
+            # Record the face for rendering along with it's z-depth from the camera, the face's
+            # z-depth is the z component of the centre point transformed by the camera view matrix
+            depth = v_multiply(centre, self.m_view._m)[2]
+            faces.append((indices, norm_index, col_index, depth))
+
+        # A painter's algorithm; use the face's average depth value to order them from back to front,
+        # this ensures far away faces are not drawn on top of near faces
+        faces_sorted = sorted(faces, key=lambda face : face[3])
+
         # Render faces
         framebuffer = self.fb
-        for indices, norm_index, col_index in faces:
+        for indices, norm_index, col_index, _ in faces_sorted:
 
             # If a face's projected vertices all lie outside the viewable space (x or y is more than 1
             # or less then -1) then we can cull it because it will not be seen; if at least one vertex
