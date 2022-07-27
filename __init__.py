@@ -4,7 +4,7 @@ from tidal import *
 import time
 
 from .buffdisp import BufferedDisplay
-from .math3d import Vec, Mat, Quat
+from .math3d import *
 from .object import Mesh
 
 MODE_POINT_CLOUD = 0
@@ -30,16 +30,16 @@ class Renderer(App):
         # Projection matrix
         self.m_proj = Mat.perspective(90, self.fb.width / self.fb.height,  0.1, 100)
 
-        # Camera view transformation matrix
+        # Camera position and view transformation matrix
         # TODO a proper camera system
-        self.v_cam = Vec([0, 10, 35])
-        self.m_view = Mat.identity().translate(Vec([0, -10, -35]))
+        self.v_campos = [0, 10, 35]
+        self.m_view = Mat.identity().translate([0, -10, -35])
+
+        # Lighting vector
+        self.v_light = v_normalise([-1,-1,-1])
 
         # Model to render
         self.mesh = Mesh(self.render_object)
-
-        # Lighting vector
-        self.light = Vec([-1,-1,-1]).normalise()
 
         self.start_t = 0
         self.accum_t = 0
@@ -146,25 +146,25 @@ class Renderer(App):
         # Note that translating doesn't mean anything for vectors, so normals are rotated only, and vertices
         # are both rotated and translated
         m_model = Mat.identity().rotate(self.mesh.orientation)
-        norms = [v.multiply(m_model) for v in self.mesh.normals]
+        norms = [v_multiply(v, m_model._m) for v in self.mesh.normals]
         m_model = m_model.translate(self.mesh.position)
-        verts = [v.multiply(m_model) for v in self.mesh.vertices]
+        verts = [v_multiply(v, m_model._m) for v in self.mesh.vertices]
 
         # Generate a list of faces and their projected vertices for rendering
         faces = []
         projected_verts = {}
         for indices, norm_index, col_index in self.mesh.faces:
             # Calculate the point in the centre of the face
-            centre = Vec.average([verts[indices[0]], verts[indices[1]], verts[indices[2]]])
+            centre = v_average([verts[indices[0]], verts[indices[1]], verts[indices[2]]])
 
             # Calculate the vector of the direction to the camera from the centre of the face
-            camera = self.v_cam.subtract(centre).normalise()
+            camera = v_normalise(v_subtract(self.v_campos, centre))
 
             # Now we use the dot product to determine if the front of the face is pointing at the
             # camera; if the angle between the normal vector and the camera vector is greater than
             # 90 degrees then we are seeing the back of the face, and if we are culling back faces
             # then we can avoid rendering it
-            dot = norms[norm_index].dot(camera)
+            dot = v_dot(norms[norm_index], camera)
             if (dot < 0 and self.render_mode >= MODE_WIREFRAME_BACK_FACE_CULLING):
                 continue
             faces.append((indices, norm_index, col_index))
@@ -172,15 +172,15 @@ class Renderer(App):
             # Since the face is going to be rendered, let's go ahead and project its vertices
             for index in indices:
 
-                # Since faces can share vertices, and matrix multiplication is probably expensive,
-                # let's not project a vertex more than once, we'll just keep a list of vertices that
-                # we've already projected
+                # Since faces can share vertices, and matrix multiplication is expensive, let's not
+                # project a vertex more than once, we'll just keep a list of vertices that we've
+                # already projected
                 if index in projected_verts:
                     continue
 
                 # Transform the world coorinates into camera coordinates by multiplying by the
                 # camera view matrix, allowing it be viewed from the camera's point of view
-                vert_cam = verts[index].multiply(self.m_view)
+                vert_cam = v_multiply(verts[index], self.m_view._m)
 
                 # Project the vertex onto a 2D plane by multiplying by the projection matrix, this
                 # yields normalised device coords where all points that lie within the viewable space
@@ -188,7 +188,7 @@ class Renderer(App):
                 # The projection matrix multiplication also performs the perspective division, which
                 # makes more distant points appear further away by making them closer together on the
                 # x and y axes
-                vert_ndc = vert_cam.multiply(self.m_proj)
+                vert_ndc = v_multiply(vert_cam, self.m_proj._m)
                 projected_verts[index] = vert_ndc
 
         # Render faces
@@ -207,8 +207,14 @@ class Renderer(App):
             if not visible:
                 continue
 
-            # Generate sceen coordinates for face vertices
-            coords = [self.ndc_to_screen(x) for x in face_verts]
+            # Convert normalised device coordinates (NDCs) to screen coordinates, if an NDC's x and y
+            # components both lie between -1 and 1, it will result in a valid on-screen pixel location
+            # This is implemented in native code for speed reasons, but it just does this:
+            #        x = (v[0] + 1) * 0.5 * width
+            #        y = (1 - (v[1] + 1) * 0.5) * height
+            # Obviously the y axis here is inverted because screens tend to have the origin 0,0 at the
+            # top left and increases towards the bottom
+            coords = [v_ndc_to_screen(v, self.fb.width, self.fb.height) for v in face_verts]
 
             colour = 0xFFFF
             if self.render_mode > MODE_POINT_CLOUD and self.render_mode < MODE_SOLID_SHADED:
@@ -219,7 +225,7 @@ class Renderer(App):
                 # Scale the color by the angle of incidence of the light vector so a face appears
                 # more brightly lit the closer to orthogonal it is, but clamp to a minimum value
                 # so unlit faces are not totally invisible, simulating a bit of ambient light
-                dot = norms[norm_index].dot(self.light)
+                dot = v_dot(norms[norm_index], self.v_light)
                 rgb = [max(int(c * -dot), 8) for c in self.mesh.colours[col_index]]
                 colour = color565(rgb[0], rgb[1], rgb[2])
 
@@ -233,16 +239,6 @@ class Renderer(App):
 
     def render_foreground(self):
         self.fb.fb.text("{0:2d} fps".format(self.fps), 0, self.fb.height - 10, WHITE)
-
-    def ndc_to_screen(self, ndc):
-        """
-        Convert a normalised device coordinate (NDC) to a screen coordinate, if an NDC's x and y
-        components both lie between -1 and 1, it will result in a valid on-screen pixel location
-        obviously we invert the y here because screens tend to have the origin 0,0 at the top left
-        """
-        x = (ndc[0] + 1) * 0.5 * self.fb.width
-        y = (1 - (ndc[1] + 1) * 0.5) * self.fb.height
-        return (int(x), int(y))
 
 
 # Set the entrypoint for the app launcher

@@ -1,4 +1,4 @@
-from .math3d import Vec, Mat, Quat
+from .math3d import *
 
 
 class Mesh:
@@ -24,19 +24,19 @@ class Mesh:
         self._load(filename)
 
         # Position and linear velocity
-        self.position = Vec([0, 0, 0])
-        self.velocity = Vec([0, 0, 0])
+        self.position = [0, 0, 0]
+        self.velocity = [0, 0, 0]
 
         # Orientation and angular velocity
         self.orientation = Quat([1, 0, 0, 0])
-        self.angular = Vec([0, 0, 0])
+        self.angular = [0, 0, 0]
 
     def _load(self, filename):
         # Parse the geometry file
         op = ObjectParser()
         op.parse("apps/tidal_3d/" + filename)
 
-        self.vertices = [Vec(v) for v in op.vertices]
+        self.vertices = op.vertices
         self.vert_indices = [f['indices'] for f in op.faces]
 
         # Pre-calculate face normal vectors, a normal is the direction exactly perpendicular to
@@ -45,7 +45,7 @@ class Mesh:
             a = self.vertices[face[0]]
             b = self.vertices[face[1]]
             c = self.vertices[face[2]]
-            normal = a.subtract(b).cross(b.subtract(c)).normalise()
+            normal = v_normalise(v_cross(v_subtract(a, b), v_subtract(b, c)))
             if normal not in self.normals:
                 self.normals.append(normal)
             self.norm_indices.append(self.normals.index(normal))
@@ -72,10 +72,10 @@ class Mesh:
 
     def update(self, delta_t):
         # Move our position by our velocity
-        self.position = self.position.add(self.velocity.scale(delta_t))
+        self.position = v_add(self.position, v_scale(self.velocity, delta_t))
         # Rotate ourselves around the axis
-        degrees = self.angular.mag()
-        axis = self.angular.normalise()
+        degrees = v_magnitude(self.angular)
+        axis = v_normalise(self.angular)
         self.orientation = self.orientation.rotate(degrees * delta_t, axis)
 
 
