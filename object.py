@@ -28,7 +28,7 @@ class Mesh:
         self.velocity = [0, 0, 0]
 
         # Orientation and angular velocity
-        self.orientation = Quat([1, 0, 0, 0])
+        self.orientation = [1, 0, 0, 0]
         self.angular = [0, 0, 0]
 
     def _load(self, filename):
@@ -76,7 +76,7 @@ class Mesh:
         # Rotate ourselves around the axis
         degrees = v_magnitude(self.angular)
         axis = v_normalise(self.angular)
-        self.orientation = self.orientation.rotate(degrees * delta_t, axis)
+        self.orientation = q_rotate(self.orientation, degrees * delta_t, axis)
 
 
 class ParserInterface:

@@ -1,46 +1,5 @@
-from math import cos, sin, radians, sqrt, tan
+from math import cos, sin, radians, tan
 from tidal3d import *
-
-
-class Quat:
-    """
-    Utility class for dealing with quaternions
-    """
-
-    def __init__(self, q):
-        self._q = q
-
-    def __getitem__(self, index):
-        return self._q[index]
-
-    def __setitem__(self, index, value):
-        self._q[index] = value
-
-    def __eq__(self, other):
-        return self._q == other._q
-
-    def __str__(self):
-        return 'Quat({}, {}, {}, {})'.format(self._q[0], self._q[1], self._q[2], self._q[3])
-
-    def rotate(self, angle, vector):
-        """
-        Returns the quaternion given by rotating this quaternion by the given angle of rotation in
-        degrees around the axis described by the given vector
-        """
-        theta = radians(angle) / 2
-        factor = sin(theta)
-        rotation = Quat([cos(theta), vector[0] * factor, vector[1] * factor, vector[2] * factor])
-        return self.multiply(rotation)
-
-    def multiply(self, quat):
-        """
-        Returns the quaternion given by multiplying this quaternion with the given quaternion
-        """
-        w = self[0] * quat[0] - self[1] * quat[1] - self[2] * quat[2] - self[3] * quat[3]
-        x = self[0] * quat[1] + self[1] * quat[0] + self[2] * quat[3] - self[3] * quat[2]
-        y = self[0] * quat[2] - self[1] * quat[3] + self[2] * quat[0] + self[3] * quat[1]
-        z = self[0] * quat[3] + self[1] * quat[2] - self[2] * quat[1] + self[3] * quat[0]
-        return Quat([w, x, y, z])
 
 
 class Mat:
