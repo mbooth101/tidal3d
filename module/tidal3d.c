@@ -1,7 +1,7 @@
 #include "py/runtime.h"
 #include <math.h>
 
-// Pre-computed pi over 180
+// Pre-computed PI over 180
 #define DEGS_TO_RADS (0.017453)
 
 // Helper to calculate vector magnitude used by v_magnitude and v_normalise
@@ -244,14 +244,14 @@ STATIC mp_obj_t v_ndc_to_screen(mp_obj_t vector, mp_obj_t width, mp_obj_t height
 STATIC MP_DEFINE_CONST_FUN_OBJ_3(v_ndc_to_screen_obj, v_ndc_to_screen);
 
 /**
- * Returns the quaternion given by rotating the given quaternion by the given angle of rotation in
- * degrees around the axis described by the given vector
+ * Returns the quaternion given by rotating the given quaternion by the given number of degrees
+ * around the axis described by the given vector
  */
-STATIC mp_obj_t q_rotate(mp_obj_t quaternion, mp_obj_t angle, mp_obj_t vector) {
+STATIC mp_obj_t q_rotate(mp_obj_t quaternion, mp_obj_t degrees, mp_obj_t vector) {
 	size_t len;
 	mp_obj_t *vec, *quat;
-	mp_obj_get_array(quaternion, &len, &quat);
 
+	mp_obj_get_array(quaternion, &len, &quat);
 	if (len < 4) {
 		mp_raise_ValueError(MP_ERROR_TEXT("quaternion must be length 4"));
 	}
@@ -265,7 +265,7 @@ STATIC mp_obj_t q_rotate(mp_obj_t quaternion, mp_obj_t angle, mp_obj_t vector) {
 	if (len < 3) {
 		mp_raise_ValueError(MP_ERROR_TEXT("vector must be length 3"));
 	}
-	mp_float_t theta = (mp_obj_get_float(angle) * DEGS_TO_RADS) / 2;
+	mp_float_t theta = (mp_obj_get_float(degrees) * DEGS_TO_RADS) / 2;
 	mp_float_t factor = sin(theta);
 	mp_float_t q2w = cos(theta);
 	mp_float_t q2x = mp_obj_get_float(vec[0]) * factor;
@@ -282,6 +282,7 @@ STATIC mp_obj_t q_rotate(mp_obj_t quaternion, mp_obj_t angle, mp_obj_t vector) {
 }
 STATIC MP_DEFINE_CONST_FUN_OBJ_3(q_rotate_obj, q_rotate);
 
+#if !MICROPY_ENABLE_DYNRUNTIME
 STATIC const mp_rom_map_elem_t tidal3d_module_globals_table[] = {
     { MP_ROM_QSTR(MP_QSTR___name__), MP_ROM_QSTR(MP_QSTR_tidal3d) },
     { MP_ROM_QSTR(MP_QSTR_v_magnitude), MP_ROM_PTR(&v_magnitude_obj) },
@@ -304,4 +305,4 @@ const mp_obj_module_t tidal3d_module = {
 };
 
 MP_REGISTER_MODULE(MP_QSTR_tidal3d, tidal3d_module, 1);
-
+#endif
