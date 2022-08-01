@@ -6,7 +6,7 @@ It can render objects from Wavefront OBJ/MTL files, such as you might export fro
 
 Here's a quick demo showing the obligatory Cube (a platonic solid) and Utah Teapot (a plate-onic solid):
 
-https://user-images.githubusercontent.com/597661/182123844-fca92232-0b1e-4d91-830c-54877b67a679.mp4
+[https://user-images.githubusercontent.com/597661/182123844-fca92232-0b1e-4d91-830c-54877b67a679.mp4](https://user-images.githubusercontent.com/597661/182123844-fca92232-0b1e-4d91-830c-54877b67a679.mp4)
 
 ## Trying It Out
 
