@@ -304,5 +304,5 @@ const mp_obj_module_t tidal3d_module = {
     .globals = (mp_obj_dict_t *)&tidal3d_module_globals,
 };
 
-MP_REGISTER_MODULE(MP_QSTR_tidal3d, tidal3d_module, 1);
+MP_REGISTER_MODULE(MP_QSTR_tidal3d, tidal3d_module);
 #endif
