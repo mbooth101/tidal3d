@@ -1,4 +1,5 @@
 from framebuf import FrameBuffer, RGB565
+from array import array
 
 
 class BufferedDisplay:
@@ -54,22 +55,23 @@ class BufferedDisplay:
         Draw the given list of points to the framebuffer
         """
         colour = self.swap_colour_bytes(colour)
-        for point in points:
-            self.fb.pixel(point[0], point[1], colour)
+        self.fb.pixel(points[0], points[1], colour)
+        self.fb.pixel(points[2], points[3], colour)
+        self.fb.pixel(points[4], points[5], colour)
 
     def polygon(self, points, colour):
         """
         Draw the given list of points to the framebuffer as a closed polygon
         """
         colour = self.swap_colour_bytes(colour)
-        self.fb.polygon(points, 0, 0, colour)
+        self.fb.poly(0, 0, array('h', points), colour)
 
     def fill_polygon(self, points, colour):
         """
         Draw the given list of points to the framebuffer as a filled, closed polygon
         """
         colour = self.swap_colour_bytes(colour)
-        self.fb.fill_polygon(points, 0, 0, colour)
+        self.fb.poly(0, 0, array('h', points), colour, True)
 
     def blit(self):
         """

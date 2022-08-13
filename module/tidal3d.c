@@ -116,13 +116,9 @@ STATIC mp_obj_t v_average(mp_obj_t vectors) {
 
 	mp_float_t x = 0, y = 0, z = 0;
 
-	size_t len;
 	mp_obj_t *vec;
 	for (size_t i = 0; i < list_len; i++) {
-		mp_obj_get_array(list[i], &len, &vec);
-		if (len < 3) {
-			mp_raise_ValueError(MP_ERROR_TEXT("vector must be length 3"));
-		}
+		mp_obj_get_array_fixed_n(list[i], 3, &vec);
 		x += mp_obj_get_float(vec[0]);
 		y += mp_obj_get_float(vec[1]);
 		z += mp_obj_get_float(vec[2]);
@@ -140,12 +136,8 @@ STATIC MP_DEFINE_CONST_FUN_OBJ_1(v_average_obj, v_average);
  * Returns the vector given by multiplying the given vector by the given matrix
  */
 STATIC mp_obj_t v_multiply(mp_obj_t vector, mp_obj_t matrix) {
-	size_t len;
 	mp_obj_t *vec;
-	mp_obj_get_array(vector, &len, &vec);
-	if (len < 3) {
-		mp_raise_ValueError(MP_ERROR_TEXT("vector must be length 3"));
-	}
+	mp_obj_get_array_fixed_n(vector, 3, &vec);
 	mp_float_t x = mp_obj_get_float(vec[0]);
 	mp_float_t y = mp_obj_get_float(vec[1]);
 	mp_float_t z = mp_obj_get_float(vec[2]);
@@ -221,24 +213,30 @@ STATIC mp_obj_t v_cross(mp_obj_t vector1, mp_obj_t vector2) {
 STATIC MP_DEFINE_CONST_FUN_OBJ_2(v_cross_obj, v_cross);
 
 /**
- * Return screen coordinates for a vector containing normalised device coordinates (NDCs), an NDC
- * with x and y values of between -1.0 and 1.0 are mapped to valid screen coordinates within the
- * contraints of the given screen width and height in pixels
+ * Return screen coordinates for a list of vectors containing normalised device coordinates (NDCs),
+ * an NDC with x and y values of between -1.0 and 1.0 are mapped to valid screen coordinates within
+ * the contraints of the given screen dimensions in pixels
  */
-STATIC mp_obj_t v_ndc_to_screen(mp_obj_t vector, mp_obj_t width, mp_obj_t height) {
-	size_t len;
-	mp_obj_t *vec;
-	mp_obj_get_array(vector, &len, &vec);
-	if (len < 2) {
-		mp_raise_ValueError(MP_ERROR_TEXT("ndc must be at least length 2"));
+STATIC mp_obj_t v_ndc_to_screen(mp_obj_t vectors, mp_obj_t width, mp_obj_t height) {
+	size_t list_len;
+	mp_obj_t *vecs, *vec;
+	mp_obj_get_array(vectors, &list_len, &vecs);
+
+	mp_float_t w = mp_obj_get_float(width);
+	mp_float_t h = mp_obj_get_float(height);
+
+	mp_obj_list_t *result = MP_OBJ_TO_PTR(mp_obj_new_list(list_len * 2, NULL));
+
+	for (size_t i = 0; i < list_len; i++) {
+		mp_obj_get_array_fixed_n(vecs[i], 3, &vec);
+
+		mp_float_t x = (mp_obj_get_float(vec[0]) + 1) * 0.5 * w;
+		mp_float_t y = (1 - (mp_obj_get_float(vec[1]) + 1) * 0.5) * h;
+
+		result->items[i * 2] = mp_obj_new_int(x);
+		result->items[i * 2 + 1] = mp_obj_new_int(y);
 	}
 
-	mp_float_t x = (mp_obj_get_float(vec[0]) + 1) * 0.5 * mp_obj_get_float(width);
-	mp_float_t y = (1 - (mp_obj_get_float(vec[1]) + 1) * 0.5) * mp_obj_get_float(height);
-
-	mp_obj_list_t *result = MP_OBJ_TO_PTR(mp_obj_new_list(2, NULL));
-	result->items[0] = mp_obj_new_int(x);
-	result->items[1] = mp_obj_new_int(y);
 	return MP_OBJ_FROM_PTR(result);
 }
 STATIC MP_DEFINE_CONST_FUN_OBJ_3(v_ndc_to_screen_obj, v_ndc_to_screen);
@@ -248,23 +246,17 @@ STATIC MP_DEFINE_CONST_FUN_OBJ_3(v_ndc_to_screen_obj, v_ndc_to_screen);
  * around the axis described by the given vector
  */
 STATIC mp_obj_t q_rotate(mp_obj_t quaternion, mp_obj_t degrees, mp_obj_t vector) {
-	size_t len;
 	mp_obj_t *vec, *quat;
 
-	mp_obj_get_array(quaternion, &len, &quat);
-	if (len < 4) {
-		mp_raise_ValueError(MP_ERROR_TEXT("quaternion must be length 4"));
-	}
+	mp_obj_get_array_fixed_n(quaternion, 4, &quat);
+	mp_obj_get_array_fixed_n(vector, 3, &vec);
+
 	mp_float_t q1w = mp_obj_get_float(quat[0]);
 	mp_float_t q1x = mp_obj_get_float(quat[1]);
 	mp_float_t q1y = mp_obj_get_float(quat[2]);
 	mp_float_t q1z = mp_obj_get_float(quat[3]);
 
 	// Compute a rotation quaternion from the angle and vector
-	mp_obj_get_array(vector, &len, &vec);
-	if (len < 3) {
-		mp_raise_ValueError(MP_ERROR_TEXT("vector must be length 3"));
-	}
 	mp_float_t theta = (mp_obj_get_float(degrees) * DEGS_TO_RADS) / 2;
 	mp_float_t factor = sin(theta);
 	mp_float_t q2w = cos(theta);

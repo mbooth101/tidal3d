@@ -222,7 +222,7 @@ class Renderer(App):
             #        y = (1 - (v[1] + 1) * 0.5) * height
             # Obviously the y axis here is inverted because screens tend to have the origin 0,0 at the
             # top left and increases towards the bottom
-            coords = [v_ndc_to_screen(v, self.fb.width, self.fb.height) for v in face_verts]
+            coords = v_ndc_to_screen(face_verts, self.fb.width, self.fb.height)
 
             colour = 0xFFFF
             if self.render_mode > MODE_POINT_CLOUD and self.render_mode < MODE_SOLID_SHADED:
