@@ -155,7 +155,7 @@ STATIC mp_obj_t v_multiply(mp_obj_t vector, mp_obj_t matrix) {
 	mp_obj_get_array(mat[3], &mat_len, &m3);
 
 	float xyzw[4];
-	for (int i = 0; i < 4; i++) {
+	for (size_t i = 0; i < 4; i++) {
 		xyzw[i] = x * mp_obj_get_float(m0[i])
 			+ y * mp_obj_get_float(m1[i])
 			+ z * mp_obj_get_float(m2[i])
@@ -242,8 +242,90 @@ STATIC mp_obj_t v_ndc_to_screen(mp_obj_t vectors, mp_obj_t width, mp_obj_t heigh
 STATIC MP_DEFINE_CONST_FUN_OBJ_3(v_ndc_to_screen_obj, v_ndc_to_screen);
 
 /**
+ * Returns the matrix given by multiplying together the two given 4x4 matrices
+ */
+STATIC mp_obj_t m_multiply(mp_obj_t matrix1, mp_obj_t matrix2) {
+	mp_obj_t *mat1, *mat2;
+	mp_obj_get_array_fixed_n(matrix1, 16, &mat1);
+	mp_obj_get_array_fixed_n(matrix2, 16, &mat2);
+
+	// We are assuming here that both operands are 4x4 matrices, but you could make these loops work
+	// for multiplying arbitrarily sized matrices if the number of rows on the LHS is equal to the
+	// number of columns on the RHS
+	mp_obj_list_t *result = MP_OBJ_TO_PTR(mp_obj_new_list(16, NULL));
+	for (size_t i = 0; i < 4; i++) { // Num of rows on the LHS
+		for (size_t j = 0; j < 4; j++) { // Num of cols on the RHS
+			mp_float_t val = 0;
+			val += mp_obj_get_float(mat1[i * 4 + 0]) * mp_obj_get_float(mat2[0 + j]);
+			val += mp_obj_get_float(mat1[i * 4 + 1]) * mp_obj_get_float(mat2[4 + j]);
+			val += mp_obj_get_float(mat1[i * 4 + 2]) * mp_obj_get_float(mat2[8 + j]);
+			val += mp_obj_get_float(mat1[i * 4 + 3]) * mp_obj_get_float(mat2[12 + j]);
+			result->items[i * 4 + j] = mp_obj_new_float(val);
+		}
+	}
+	return MP_OBJ_FROM_PTR(result);
+}
+STATIC MP_DEFINE_CONST_FUN_OBJ_2(m_multiply_obj, m_multiply);
+
+/**
+ * Returns the matrix given by translating the given 4x4 matrix by the given 3D vector
+ */
+STATIC mp_obj_t m_translate(mp_obj_t matrix, mp_obj_t vector) {
+	mp_obj_t *vec;
+	mp_obj_get_array_fixed_n(vector, 3, &vec);
+
+	mp_obj_list_t *trans_mat = MP_OBJ_TO_PTR(mp_obj_new_list(16, NULL));
+	for (size_t i = 0; i < 4; i++) {
+		for (size_t j = 0; j < 4; j++) {
+			if (i == j) {
+				trans_mat->items[i * 4 + j] = mp_obj_new_float(1);
+			} else {
+				trans_mat->items[i * 4 + j] = mp_obj_new_float(0);
+			}
+		}
+	}
+	trans_mat->items[12] = mp_obj_new_float(mp_obj_get_float(vec[0]));
+	trans_mat->items[13] = mp_obj_new_float(mp_obj_get_float(vec[1]));
+	trans_mat->items[14] = mp_obj_new_float(mp_obj_get_float(vec[2]));
+	return m_multiply(matrix, MP_OBJ_FROM_PTR(trans_mat));
+}
+STATIC MP_DEFINE_CONST_FUN_OBJ_2(m_translate_obj, m_translate);
+
+/**
+ * Returns the matrix given by rotating the given 4x4 matrix by the given quaternion
+ */
+STATIC mp_obj_t m_rotate(mp_obj_t matrix, mp_obj_t quaternion) {
+	mp_obj_t *quat;
+	mp_obj_get_array_fixed_n(quaternion, 4, &quat);
+	mp_float_t w = mp_obj_get_float(quat[0]);
+	mp_float_t x = mp_obj_get_float(quat[1]);
+	mp_float_t y = mp_obj_get_float(quat[2]);
+	mp_float_t z = mp_obj_get_float(quat[3]);
+
+	mp_obj_list_t *rot_mat = MP_OBJ_TO_PTR(mp_obj_new_list(16, NULL));
+	rot_mat->items[0] = mp_obj_new_float(1 - 2 * (y * y + z * z));
+	rot_mat->items[1] = mp_obj_new_float(2 * (x * y - w * z));
+	rot_mat->items[2] = mp_obj_new_float(2 * (x * z + w * y));
+	rot_mat->items[3] = mp_obj_new_float(0);
+	rot_mat->items[4] = mp_obj_new_float(2 * (x * y + w * z));
+	rot_mat->items[5] = mp_obj_new_float(1 - 2 * (x * x + z * z));
+	rot_mat->items[6] = mp_obj_new_float(2 * (y * z - w * x));
+	rot_mat->items[7] = mp_obj_new_float(0);
+	rot_mat->items[8] = mp_obj_new_float(2 * (x * z - w * y));
+	rot_mat->items[9] = mp_obj_new_float(2 * (y * z + w * x));
+	rot_mat->items[10] = mp_obj_new_float(1 - 2 * (x * x + y * y));
+	rot_mat->items[11] = mp_obj_new_float(0);
+	rot_mat->items[12] = mp_obj_new_float(0);
+	rot_mat->items[13] = mp_obj_new_float(0);
+	rot_mat->items[14] = mp_obj_new_float(0);
+	rot_mat->items[15] = mp_obj_new_float(1);
+	return m_multiply(matrix, MP_OBJ_FROM_PTR(rot_mat));
+}
+STATIC MP_DEFINE_CONST_FUN_OBJ_2(m_rotate_obj, m_rotate);
+
+/**
  * Returns the quaternion given by rotating the given quaternion by the given number of degrees
- * around the axis described by the given vector
+ * around the axis described by the given 3D vector
  */
 STATIC mp_obj_t q_rotate(mp_obj_t quaternion, mp_obj_t degrees, mp_obj_t vector) {
 	mp_obj_t *vec, *quat;
@@ -287,6 +369,9 @@ STATIC const mp_rom_map_elem_t tidal3d_module_globals_table[] = {
     { MP_ROM_QSTR(MP_QSTR_v_dot), MP_ROM_PTR(&v_dot_obj) },
     { MP_ROM_QSTR(MP_QSTR_v_cross), MP_ROM_PTR(&v_cross_obj) },
     { MP_ROM_QSTR(MP_QSTR_v_ndc_to_screen), MP_ROM_PTR(&v_ndc_to_screen_obj) },
+    { MP_ROM_QSTR(MP_QSTR_m_multiply), MP_ROM_PTR(&m_multiply_obj) },
+    { MP_ROM_QSTR(MP_QSTR_m_translate), MP_ROM_PTR(&m_translate_obj) },
+    { MP_ROM_QSTR(MP_QSTR_m_rotate), MP_ROM_PTR(&m_rotate_obj) },
     { MP_ROM_QSTR(MP_QSTR_q_rotate), MP_ROM_PTR(&q_rotate_obj) },
 };
 STATIC MP_DEFINE_CONST_DICT(tidal3d_module_globals, tidal3d_module_globals_table);
