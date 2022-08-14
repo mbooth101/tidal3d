@@ -22,6 +22,7 @@ class BufferedDisplay(FrameBuffer):
         self.buffer = bytearray(2 * self.width * self.height)
         super().__init__(self.buffer, self.width, self.height, RGB565)
 
+    @micropython.native
     def swap_colour_bytes(self, colour):
         """
         The byte-order of the built-in framebuffer appears to be the opposite endianness to that of the

@@ -172,19 +172,21 @@ class Renderer(App):
         self.fb.text("JOY = ROTATE", 0, 20, WHITE)
 
     def render_scene(self):
+        mesh = self.mesh
+
         # Transform all vertices to their positions in the world by multiplying by the model transformation
         # matrix, which is specific to the mesh being rendered (create world coordinates)
         # Note that translating doesn't mean anything for vectors, so normals are rotated only, and vertices
         # are both rotated and translated
-        m_model = m_rotate(Renderer.identity_matrix(), self.mesh.orientation)
-        norms = v_multiply_batch(self.mesh.normals, m_model)
-        m_model = m_translate(m_model, self.mesh.position)
-        verts = v_multiply_batch(self.mesh.vertices, m_model)
+        m_model = m_rotate(Renderer.identity_matrix(), mesh.orientation)
+        norms = v_multiply_batch(mesh.normals, m_model)
+        m_model = m_translate(m_model, mesh.position)
+        verts = v_multiply_batch(mesh.vertices, m_model)
 
         # Generate a list of faces and their projected vertices for rendering
         faces = []
-        projected_verts = {}
-        for indices, norm_index, col_index in self.mesh.faces:
+        projected_verts = [None] * len(verts)
+        for indices, norm_index, col_index in mesh.faces:
             # Calculate the point in the centre of the face
             centre = v_average([verts[indices[0]], verts[indices[1]], verts[indices[2]]])
 
@@ -205,7 +207,7 @@ class Renderer(App):
                 # Since faces can share vertices, and matrix multiplication is expensive, let's not
                 # project a vertex more than once, we'll just keep a list of vertices that we've
                 # already projected
-                if index in projected_verts:
+                if projected_verts[index]:
                     continue
 
                 # Transform the world coorinates into camera coordinates by multiplying by the
@@ -228,11 +230,11 @@ class Renderer(App):
 
         # A painter's algorithm; use the face's average depth value to order them from back to front,
         # this ensures far away faces are not drawn on top of near faces
-        faces_sorted = sorted(faces, key=lambda face : face[3])
+        faces.sort(key=lambda face : face[3])
 
         # Render faces
         framebuffer = self.fb
-        for indices, norm_index, col_index, _ in faces_sorted:
+        for indices, norm_index, col_index, _ in faces:
 
             # If a face's projected vertices all lie outside the viewable space (x or y is more than 1
             # or less then -1) then we can cull it because it will not be seen; if at least one vertex
@@ -255,17 +257,17 @@ class Renderer(App):
             # top left and increases towards the bottom
             coords = v_ndc_to_screen(face_verts, framebuffer.width, framebuffer.height)
 
-            colour = 0xFFFF
+            colour = WHITE
             if self.render_mode > MODE_POINT_CLOUD and self.render_mode < MODE_SOLID_SHADED:
                 # Solid, unshaded colour
-                rgb = self.mesh.colours[col_index]
+                rgb = mesh.colours[col_index]
                 colour = color565(rgb[0], rgb[1], rgb[2])
             elif self.render_mode >= MODE_SOLID_SHADED:
                 # Scale the color by the angle of incidence of the light vector so a face appears
                 # more brightly lit the closer to orthogonal it is, but clamp to a minimum value
                 # so unlit faces are not totally invisible, simulating a bit of ambient light
                 dot = v_dot(norms[norm_index], self.v_light)
-                rgb = [max(int(c * -dot), 8) for c in self.mesh.colours[col_index]]
+                rgb = [max(int(c * -dot), 8) for c in mesh.colours[col_index]]
                 colour = color565(rgb[0], rgb[1], rgb[2])
 
             # Draw to the framebuffer using screen coordinates
