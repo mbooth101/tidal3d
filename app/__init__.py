@@ -267,8 +267,8 @@ class Renderer(App):
                 # more brightly lit the closer to orthogonal it is, but clamp to a minimum value
                 # so unlit faces are not totally invisible, simulating a bit of ambient light
                 dot = v_dot(norms[norm_index], self.v_light)
-                rgb = [max(int(c * -dot), 8) for c in mesh.colours[col_index]]
-                colour = color565(rgb[0], rgb[1], rgb[2])
+                rgb = v_scale(mesh.colours[col_index], -dot)
+                colour = color565(max(int(rgb[0]), 8), max(int(rgb[1]), 8), max(int(rgb[2]), 8))
 
             # Draw to the framebuffer using screen coordinates
             if self.render_mode == MODE_POINT_CLOUD:

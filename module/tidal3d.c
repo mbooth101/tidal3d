@@ -201,21 +201,18 @@ STATIC mp_obj_t v_multiply_batch(mp_obj_t vectors, mp_obj_t matrix) {
 STATIC MP_DEFINE_CONST_FUN_OBJ_2(v_multiply_batch_obj, v_multiply_batch);
 
 /**
- * Returns a scalar value of 0 if the given vectors are exactly perpendicular, <0 if the angle
+ * Returns a scalar value of 0 if the given 3D vectors are exactly perpendicular, <0 if the angle
  * between them is greater than 90° or >0 if the angle between them is less than 90° (dot product)
  */
 STATIC mp_obj_t v_dot(mp_obj_t vector1, mp_obj_t vector2) {
-	size_t len1, len2;
 	mp_obj_t *v1, *v2;
-	mp_obj_get_array(vector1, &len1, &v1);
-	mp_obj_get_array(vector2, &len2, &v2);
+	mp_obj_get_array_fixed_n(vector1, 3, &v1);
+	mp_obj_get_array_fixed_n(vector2, 3, &v2);
 
-	mp_float_t result = 0;
-	for (size_t i = 0; i < (len1 < len2 ? len1 : len2); i++) {
-		mp_float_t a = mp_obj_get_float(v1[i]);
-		mp_float_t b = mp_obj_get_float(v2[i]);
-		result += a * b;
-	}
+	mp_float_t result;
+	result = mp_obj_get_float(v1[0]) * mp_obj_get_float(v2[0]);
+	result += mp_obj_get_float(v1[1]) * mp_obj_get_float(v2[1]);
+	result += mp_obj_get_float(v1[2]) * mp_obj_get_float(v2[2]);
 	return mp_obj_new_float(result);
 }
 STATIC MP_DEFINE_CONST_FUN_OBJ_2(v_dot_obj, v_dot);
