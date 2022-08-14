@@ -177,9 +177,9 @@ class Renderer(App):
         # Note that translating doesn't mean anything for vectors, so normals are rotated only, and vertices
         # are both rotated and translated
         m_model = m_rotate(Renderer.identity_matrix(), self.mesh.orientation)
-        norms = [v_multiply(v, m_model) for v in self.mesh.normals]
+        norms = v_multiply_batch(self.mesh.normals, m_model)
         m_model = m_translate(m_model, self.mesh.position)
-        verts = [v_multiply(v, m_model) for v in self.mesh.vertices]
+        verts = v_multiply_batch(self.mesh.vertices, m_model)
 
         # Generate a list of faces and their projected vertices for rendering
         faces = []

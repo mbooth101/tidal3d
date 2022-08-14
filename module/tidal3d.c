@@ -136,14 +136,14 @@ STATIC MP_DEFINE_CONST_FUN_OBJ_1(v_average_obj, v_average);
  * Returns the vector given by multiplying the given 3D vector by the given 4x4 matrix
  */
 STATIC mp_obj_t v_multiply(mp_obj_t vector, mp_obj_t matrix) {
+	mp_obj_t *mat;
+	mp_obj_get_array_fixed_n(matrix, 16, &mat);
+
 	mp_obj_t *vec;
 	mp_obj_get_array_fixed_n(vector, 3, &vec);
 	mp_float_t x = mp_obj_get_float(vec[0]);
 	mp_float_t y = mp_obj_get_float(vec[1]);
 	mp_float_t z = mp_obj_get_float(vec[2]);
-
-	mp_obj_t *mat;
-	mp_obj_get_array_fixed_n(matrix, 16, &mat);
 
 	mp_float_t xyzw[4];
 	for (size_t i = 0; i < 4; i++) {
@@ -160,6 +160,45 @@ STATIC mp_obj_t v_multiply(mp_obj_t vector, mp_obj_t matrix) {
 	return MP_OBJ_FROM_PTR(result);
 }
 STATIC MP_DEFINE_CONST_FUN_OBJ_2(v_multiply_obj, v_multiply);
+
+/**
+ * Returns the vectors given by multiplying the given 3D vector list by the given 4x4 matrix
+ */
+STATIC mp_obj_t v_multiply_batch(mp_obj_t vectors, mp_obj_t matrix) {
+	mp_obj_t *mat;
+	mp_obj_get_array_fixed_n(matrix, 16, &mat);
+
+	size_t list_len;
+	mp_obj_t *list;
+	mp_obj_get_array(vectors, &list_len, &list);
+
+	mp_obj_list_t *results = MP_OBJ_TO_PTR(mp_obj_new_list(list_len, NULL));
+
+	mp_obj_t *vec;
+	mp_float_t x, y, z;
+	mp_float_t xyzw[4];
+	for (size_t j = 0; j < list_len; j++) {
+		mp_obj_get_array_fixed_n(list[j], 3, &vec);
+		x = mp_obj_get_float(vec[0]);
+		y = mp_obj_get_float(vec[1]);
+		z = mp_obj_get_float(vec[2]);
+
+		for (size_t i = 0; i < 4; i++) {
+			xyzw[i] = x * mp_obj_get_float(mat[i])
+				+ y * mp_obj_get_float(mat[4 + i])
+				+ z * mp_obj_get_float(mat[8 + i])
+				+ mp_obj_get_float(mat[12 + i]);
+		}
+		mp_obj_list_t *result = MP_OBJ_TO_PTR(mp_obj_new_list(3, NULL));
+		result->items[0] = mp_obj_new_float(xyzw[0] / xyzw[3]);
+		result->items[1] = mp_obj_new_float(xyzw[1] / xyzw[3]);
+		result->items[2] = mp_obj_new_float(xyzw[2] / xyzw[3]);
+		results->items[j] = MP_OBJ_FROM_PTR(result);
+	}
+
+	return MP_OBJ_FROM_PTR(results);
+}
+STATIC MP_DEFINE_CONST_FUN_OBJ_2(v_multiply_batch_obj, v_multiply_batch);
 
 /**
  * Returns a scalar value of 0 if the given vectors are exactly perpendicular, <0 if the angle
@@ -357,6 +396,7 @@ STATIC const mp_rom_map_elem_t tidal3d_module_globals_table[] = {
     { MP_ROM_QSTR(MP_QSTR_v_subtract), MP_ROM_PTR(&v_subtract_obj) },
     { MP_ROM_QSTR(MP_QSTR_v_average), MP_ROM_PTR(&v_average_obj) },
     { MP_ROM_QSTR(MP_QSTR_v_multiply), MP_ROM_PTR(&v_multiply_obj) },
+    { MP_ROM_QSTR(MP_QSTR_v_multiply_batch), MP_ROM_PTR(&v_multiply_batch_obj) },
     { MP_ROM_QSTR(MP_QSTR_v_dot), MP_ROM_PTR(&v_dot_obj) },
     { MP_ROM_QSTR(MP_QSTR_v_cross), MP_ROM_PTR(&v_cross_obj) },
     { MP_ROM_QSTR(MP_QSTR_v_ndc_to_screen), MP_ROM_PTR(&v_ndc_to_screen_obj) },
