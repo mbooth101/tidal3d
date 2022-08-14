@@ -1,4 +1,4 @@
-from math import cos, sin, radians, tan
+from math import radians, tan
 from tidal3d import *
 
 
@@ -50,48 +50,3 @@ class Mat:
 
         return proj_mat
 
-    def translate(self, vector):
-        """
-        Returns the matrix given by translating this matrix by the given vector
-        """
-        trans_mat = Mat.identity()
-        trans_mat[3, 0] = vector[0]
-        trans_mat[3, 1] = vector[1]
-        trans_mat[3, 2] = vector[2]
-        return self.multiply(trans_mat)
-
-    def rotate(self, quaternion):
-        """
-        Returns the matrix given by rotating this matrix by the given quaternion
-        """
-        w, x, y, z = [quaternion[i] for i in range(4)]
-        rot_mat = Mat.identity()
-        rot_mat[0, 0] = 1 - 2 * (y * y + z * z)
-        rot_mat[0, 1] = 2 * (x * y - w * z)
-        rot_mat[0, 2] = 2 * (x * z + w * y)
-        rot_mat[1, 0] = 2 * (x * y + w * z)
-        rot_mat[1, 1] = 1 - 2 * (x * x + z * z)
-        rot_mat[1, 2] = 2 * (y * z - w * x)
-        rot_mat[2, 0] = 2 * (x * z - w * y)
-        rot_mat[2, 1] = 2 * (y * z + w * x)
-        rot_mat[2, 2] = 1 - 2 * (x * x + y * y)
-        return self.multiply(rot_mat)
-
-    def multiply(self, matrix):
-        """
-        Returns the matrix given by multiplying this matrix by the given matrix
-        """
-        result = [[0, 0, 0, 0],
-                  [0, 0, 0, 0],
-                  [0, 0, 0, 0],
-                  [0, 0, 0, 0]]
-        # We are assuming here that both operands are 4x4 matrices, but you could make these loops work for
-        # multiplying arbitrarily sized matrices if the number of rows on the LHS is equal to the number of
-        # columns on the RHS
-        for i in range(4):  # num of rows on the LHS
-            for j in range(4):  # num of cols on the RHS
-                result[i][j] += self[i, 0] * matrix[0, j]
-                result[i][j] += self[i, 1] * matrix[1, j]
-                result[i][j] += self[i, 2] * matrix[2, j]
-                result[i][j] += self[i, 3] * matrix[3, j]
-        return Mat(result)

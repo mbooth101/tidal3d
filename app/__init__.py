@@ -1,5 +1,6 @@
 from app import App
 from buttons import _num
+from micropython import const
 from tidal import *
 import time
 
@@ -7,11 +8,13 @@ from .buffdisp import BufferedDisplay
 from .math3d import *
 from .object import Mesh
 
-MODE_POINT_CLOUD = 0
-MODE_WIREFRAME_FULL = 1
-MODE_WIREFRAME_BACK_FACE_CULLING = 2
-MODE_SOLID = 3
-MODE_SOLID_SHADED = 4
+MODE_POINT_CLOUD = const(0)
+MODE_WIREFRAME_FULL = const(1)
+MODE_WIREFRAME_BACK_FACE_CULLING = const(2)
+MODE_SOLID = const(3)
+MODE_SOLID_SHADED = const(4)
+
+IDENT_MATRIX = [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1]
 
 
 class Renderer(App):
@@ -28,12 +31,13 @@ class Renderer(App):
         self.render_object = 'cube.obj'
 
         # Projection matrix
-        self.m_proj = Mat.perspective(90, self.fb.width / self.fb.height,  0.1, 100)
+        m_p = Mat.perspective(90, self.fb.width / self.fb.height,  0.1, 100)
+        self.m_proj = [item for sublist in m_p._m for item in sublist]
 
         # Camera position and view transformation matrix
         # TODO a proper camera system
         self.v_campos = [0, 10, 35]
-        self.m_view = Mat.identity().translate([0, -10, -35])
+        self.m_view = m_translate(IDENT_MATRIX, [0, -10, -35])
 
         # Lighting vector
         self.v_light = v_normalise([-1,-1,-1])
@@ -145,10 +149,10 @@ class Renderer(App):
         # matrix, which is specific to the mesh being rendered (create world coordinates)
         # Note that translating doesn't mean anything for vectors, so normals are rotated only, and vertices
         # are both rotated and translated
-        m_model = Mat.identity().rotate(self.mesh.orientation)
-        norms = [v_multiply(v, m_model._m) for v in self.mesh.normals]
-        m_model = m_model.translate(self.mesh.position)
-        verts = [v_multiply(v, m_model._m) for v in self.mesh.vertices]
+        m_model = m_rotate(IDENT_MATRIX, self.mesh.orientation)
+        norms = [v_multiply(v, m_model) for v in self.mesh.normals]
+        m_model = m_translate(m_model, self.mesh.position)
+        verts = [v_multiply(v, m_model) for v in self.mesh.vertices]
 
         # Generate a list of faces and their projected vertices for rendering
         faces = []
@@ -179,7 +183,7 @@ class Renderer(App):
 
                 # Transform the world coorinates into camera coordinates by multiplying by the
                 # camera view matrix, allowing it be viewed from the camera's point of view
-                vert_cam = v_multiply(verts[index], self.m_view._m)
+                vert_cam = v_multiply(verts[index], self.m_view)
 
                 # Project the vertex onto a 2D plane by multiplying by the projection matrix, this
                 # yields normalised device coords where all points that lie within the viewable space
@@ -187,12 +191,12 @@ class Renderer(App):
                 # The projection matrix multiplication also performs the perspective division, which
                 # makes more distant points appear further away by making them closer together on the
                 # x and y axes
-                vert_ndc = v_multiply(vert_cam, self.m_proj._m)
+                vert_ndc = v_multiply(vert_cam, self.m_proj)
                 projected_verts[index] = vert_ndc
 
             # Record the face for rendering along with it's z-depth from the camera, the face's
             # z-depth is the z component of the centre point transformed by the camera view matrix
-            depth = v_multiply(centre, self.m_view._m)[2]
+            depth = v_multiply(centre, self.m_view)[2]
             faces.append((indices, norm_index, col_index, depth))
 
         # A painter's algorithm; use the face's average depth value to order them from back to front,

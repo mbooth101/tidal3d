@@ -133,7 +133,7 @@ STATIC mp_obj_t v_average(mp_obj_t vectors) {
 STATIC MP_DEFINE_CONST_FUN_OBJ_1(v_average_obj, v_average);
 
 /**
- * Returns the vector given by multiplying the given vector by the given matrix
+ * Returns the vector given by multiplying the given 3D vector by the given 4x4 matrix
  */
 STATIC mp_obj_t v_multiply(mp_obj_t vector, mp_obj_t matrix) {
 	mp_obj_t *vec;
@@ -142,24 +142,15 @@ STATIC mp_obj_t v_multiply(mp_obj_t vector, mp_obj_t matrix) {
 	mp_float_t y = mp_obj_get_float(vec[1]);
 	mp_float_t z = mp_obj_get_float(vec[2]);
 
-	size_t mat_len;
 	mp_obj_t *mat;
-	mp_obj_get_array(matrix, &mat_len, &mat);
-	if (mat_len < 4) {
-		mp_raise_ValueError(MP_ERROR_TEXT("matrix must be length 4"));
-	}
-	mp_obj_t *m0, *m1, *m2, *m3;
-	mp_obj_get_array(mat[0], &mat_len, &m0);
-	mp_obj_get_array(mat[1], &mat_len, &m1);
-	mp_obj_get_array(mat[2], &mat_len, &m2);
-	mp_obj_get_array(mat[3], &mat_len, &m3);
+	mp_obj_get_array_fixed_n(matrix, 16, &mat);
 
-	float xyzw[4];
+	mp_float_t xyzw[4];
 	for (size_t i = 0; i < 4; i++) {
-		xyzw[i] = x * mp_obj_get_float(m0[i])
-			+ y * mp_obj_get_float(m1[i])
-			+ z * mp_obj_get_float(m2[i])
-			+ mp_obj_get_float(m3[i]);
+		xyzw[i] = x * mp_obj_get_float(mat[i])
+			+ y * mp_obj_get_float(mat[4 + i])
+			+ z * mp_obj_get_float(mat[8 + i])
+			+ mp_obj_get_float(mat[12 + i]);
 	}
 
 	mp_obj_list_t *result = MP_OBJ_TO_PTR(mp_obj_new_list(3, NULL));
