@@ -1,11 +1,12 @@
 from app import App
 from buttons import _num
+from math import radians, tan
 from micropython import const
 from tidal import *
+from tidal3d import *
 import time
 
 from .buffdisp import BufferedDisplay
-from .math3d import *
 from .object import Mesh
 
 MODE_POINT_CLOUD = const(0)
@@ -13,8 +14,6 @@ MODE_WIREFRAME_FULL = const(1)
 MODE_WIREFRAME_BACK_FACE_CULLING = const(2)
 MODE_SOLID = const(3)
 MODE_SOLID_SHADED = const(4)
-
-IDENT_MATRIX = [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1]
 
 
 class Renderer(App):
@@ -31,13 +30,12 @@ class Renderer(App):
         self.render_object = 'cube.obj'
 
         # Projection matrix
-        m_p = Mat.perspective(90, self.fb.width / self.fb.height,  0.1, 100)
-        self.m_proj = [item for sublist in m_p._m for item in sublist]
+        self.m_proj = Renderer.perspective_matrix(90, self.fb.width / self.fb.height,  0.1, 100)
 
         # Camera position and view transformation matrix
         # TODO a proper camera system
         self.v_campos = [0, 10, 35]
-        self.m_view = m_translate(IDENT_MATRIX, [0, -10, -35])
+        self.m_view = m_translate(Renderer.identity_matrix(), [0, -10, -35])
 
         # Lighting vector
         self.v_light = v_normalise([-1,-1,-1])
@@ -49,6 +47,35 @@ class Renderer(App):
         self.accum_t = 0
         self.frame_counter = 0
         self.fps = 0
+
+    @staticmethod
+    def identity_matrix():
+        """
+        Returns the identity matrix, multiplication of any matrix M with the identity matrix will yield the
+        original matrix M
+        """
+        return [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1]
+
+    @staticmethod
+    def perspective_matrix(fov, aspect, near, far):
+        """
+        Returns the perspective projection matrix for the given field of view and aspect ratio, multiplication
+        of any vector V with the projection matrix will yield normalised device coordinates
+        """
+        proj_mat = [0] * 16
+        # Set the field of view, accomodating for the aspect ratio of the screen
+        scale = tan(radians(fov * 0.5))
+        proj_mat[0] = 1.0 / (scale * aspect)  # Scale of the x coord of the projected vertex
+        proj_mat[5] = 1.0 / scale  # Scale of the y coord of the projected vertex
+        # Z clipping planes
+        proj_mat[10] = -far / (far - near)
+        proj_mat[14] = -far * near / (far - near)
+        # Setting these following values is how we do the perspective division, by causing w to be set to -z
+        # instead of 1 and then w is used as the normalising divisor during vector-proj_mat multiplication
+        proj_mat[11] = -1
+        proj_mat[15] = 0
+
+        return proj_mat
 
     def on_activate(self):
         super().on_activate()
@@ -149,7 +176,7 @@ class Renderer(App):
         # matrix, which is specific to the mesh being rendered (create world coordinates)
         # Note that translating doesn't mean anything for vectors, so normals are rotated only, and vertices
         # are both rotated and translated
-        m_model = m_rotate(IDENT_MATRIX, self.mesh.orientation)
+        m_model = m_rotate(Renderer.identity_matrix(), self.mesh.orientation)
         norms = [v_multiply(v, m_model) for v in self.mesh.normals]
         m_model = m_translate(m_model, self.mesh.position)
         verts = [v_multiply(v, m_model) for v in self.mesh.vertices]

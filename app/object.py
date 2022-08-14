@@ -1,4 +1,4 @@
-from .math3d import *
+from tidal3d import *
 
 
 class Mesh:
