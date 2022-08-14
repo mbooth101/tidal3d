@@ -164,12 +164,12 @@ class Renderer(App):
 
     def render_background(self):
         # Just clear the framebuffer by filling it with a solid colour
-        self.fb.fb.fill_rect(0, 0, self.fb.width, self.fb.height, BLACK)
+        self.fb.rect(0, 0, self.fb.width, self.fb.height, BLACK, True)
 
         # Show some instructions on screen
-        self.fb.fb.text("A = RENDER MODE", 0, 0, WHITE)
-        self.fb.fb.text("B = NEXT OBJECT", 0, 10, WHITE)
-        self.fb.fb.text("JOY = ROTATE", 0, 20, WHITE)
+        self.fb.text("A = RENDER MODE", 0, 0, WHITE)
+        self.fb.text("B = NEXT OBJECT", 0, 10, WHITE)
+        self.fb.text("JOY = ROTATE", 0, 20, WHITE)
 
     def render_scene(self):
         # Transform all vertices to their positions in the world by multiplying by the model transformation
@@ -253,7 +253,7 @@ class Renderer(App):
             #        y = (1 - (v[1] + 1) * 0.5) * height
             # Obviously the y axis here is inverted because screens tend to have the origin 0,0 at the
             # top left and increases towards the bottom
-            coords = v_ndc_to_screen(face_verts, self.fb.width, self.fb.height)
+            coords = v_ndc_to_screen(face_verts, framebuffer.width, framebuffer.height)
 
             colour = 0xFFFF
             if self.render_mode > MODE_POINT_CLOUD and self.render_mode < MODE_SOLID_SHADED:
@@ -274,10 +274,10 @@ class Renderer(App):
             elif self.render_mode == MODE_WIREFRAME_FULL or self.render_mode == MODE_WIREFRAME_BACK_FACE_CULLING:
                 framebuffer.polygon(coords, colour)
             elif self.render_mode >= MODE_SOLID:
-                framebuffer.fill_polygon(coords, colour)
+                framebuffer.polygon(coords, colour, True)
 
     def render_foreground(self):
-        self.fb.fb.text("{0:2d} fps".format(self.fps), 0, self.fb.height - 10, WHITE)
+        self.fb.text("{0:2d} fps".format(self.fps), 0, self.fb.height - 10, WHITE)
 
 
 # Set the entrypoint for the app launcher

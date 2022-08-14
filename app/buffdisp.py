@@ -2,7 +2,7 @@ from framebuf import FrameBuffer, RGB565
 from array import array
 
 
-class BufferedDisplay:
+class BufferedDisplay(FrameBuffer):
     """
     A buffered display that renders to an off-screen framebuffer so the whole scene can be blitted to the
     actual display in one call
@@ -20,7 +20,7 @@ class BufferedDisplay:
 
         # Create a framebuffer the same size as the display
         self.buffer = bytearray(2 * self.width * self.height)
-        self.fb = FrameBuffer(self.buffer, self.width, self.height, RGB565)
+        super().__init__(self.buffer, self.width, self.height, RGB565)
 
     def swap_colour_bytes(self, colour):
         """
@@ -46,7 +46,7 @@ class BufferedDisplay:
                     colour = dark_colour
                 else:
                     colour = light_colour
-                self.fb.fill_rect(x, y, size, size, colour)
+                self.rect(x, y, size, size, colour, True)
                 y += size
             x += size
 
@@ -55,23 +55,16 @@ class BufferedDisplay:
         Draw the given list of points to the framebuffer
         """
         colour = self.swap_colour_bytes(colour)
-        self.fb.pixel(points[0], points[1], colour)
-        self.fb.pixel(points[2], points[3], colour)
-        self.fb.pixel(points[4], points[5], colour)
+        self.pixel(points[0], points[1], colour)
+        self.pixel(points[2], points[3], colour)
+        self.pixel(points[4], points[5], colour)
 
-    def polygon(self, points, colour):
+    def polygon(self, points, colour, fill=False):
         """
-        Draw the given list of points to the framebuffer as a closed polygon
+        Draw the given list of points to the framebuffer as a closed, optionally filled, polygon
         """
         colour = self.swap_colour_bytes(colour)
-        self.fb.poly(0, 0, array('h', points), colour)
-
-    def fill_polygon(self, points, colour):
-        """
-        Draw the given list of points to the framebuffer as a filled, closed polygon
-        """
-        colour = self.swap_colour_bytes(colour)
-        self.fb.poly(0, 0, array('h', points), colour, True)
+        self.poly(0, 0, array('h', points), colour, fill)
 
     def blit(self):
         """
