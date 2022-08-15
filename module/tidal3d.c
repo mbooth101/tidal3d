@@ -6,8 +6,8 @@
 // Pre-computed PI over 180
 #define DEGS_TO_RADS (0.017453)
 
-// Helper to calculate vector magnitude used by v_magnitude and v_normalise
-STATIC mp_float_t magnitude(mp_obj_t *vec, size_t len) {
+// Internal helper to calculate vector magnitude used by v_magnitude and v_normalise
+STATIC mp_float_t v_magnitude_internal(mp_obj_t *vec, size_t len) {
 	mp_float_t sum = 0;
 	for (size_t i = 0; i < len; i++) {
 		mp_float_t f = mp_obj_get_float(vec[i]);
@@ -24,7 +24,7 @@ STATIC mp_obj_t v_magnitude(mp_obj_t vector) {
 	mp_obj_t *vec;
 	mp_obj_get_array(vector, &len, &vec);
 
-	return mp_obj_new_float(magnitude(vec, len));
+	return mp_obj_new_float(v_magnitude_internal(vec, len));
 }
 STATIC MP_DEFINE_CONST_FUN_OBJ_1(v_magnitude_obj, v_magnitude);
 
@@ -36,7 +36,7 @@ STATIC mp_obj_t v_normalise(mp_obj_t vector) {
 	mp_obj_t *vec;
 	mp_obj_get_array(vector, &len, &vec);
 
-	mp_float_t mag = magnitude(vec, len);
+	mp_float_t mag = v_magnitude_internal(vec, len);
 
 	mp_obj_list_t *result = MP_OBJ_TO_PTR(mp_obj_new_list(len, NULL));
 	for (size_t i = 0; i < len; i++) {
@@ -138,8 +138,8 @@ STATIC MP_DEFINE_CONST_FUN_OBJ_1(v_average_obj, v_average);
  * Returns the vector given by multiplying the given 3D vector by the given 4x4 matrix
  */
 STATIC mp_obj_t v_multiply(mp_obj_t vector, mp_obj_t matrix) {
-	mp_obj_t *mat;
-	mp_obj_get_array_fixed_n(matrix, 16, &mat);
+	mp_buffer_info_t mat_buffer;
+	mp_get_buffer_raise(matrix, &mat_buffer, MP_BUFFER_READ);
 
 	mp_obj_t *vec;
 	mp_obj_get_array_fixed_n(vector, 3, &vec);
@@ -149,10 +149,10 @@ STATIC mp_obj_t v_multiply(mp_obj_t vector, mp_obj_t matrix) {
 
 	mp_float_t xyzw[4];
 	for (size_t i = 0; i < 4; i++) {
-		xyzw[i] = x * mp_obj_get_float(mat[i])
-			+ y * mp_obj_get_float(mat[4 + i])
-			+ z * mp_obj_get_float(mat[8 + i])
-			+ mp_obj_get_float(mat[12 + i]);
+		xyzw[i] = x * ((float *)mat_buffer.buf)[i]
+			+ y * ((float *)mat_buffer.buf)[4 + i]
+			+ z * ((float *)mat_buffer.buf)[8 + i]
+			+ ((float *)mat_buffer.buf)[12 + i];
 	}
 
 	mp_obj_list_t *result = MP_OBJ_TO_PTR(mp_obj_new_list(3, NULL));
@@ -164,11 +164,11 @@ STATIC mp_obj_t v_multiply(mp_obj_t vector, mp_obj_t matrix) {
 STATIC MP_DEFINE_CONST_FUN_OBJ_2(v_multiply_obj, v_multiply);
 
 /**
- * Returns the vectors given by multiplying the given 3D vector list by the given 4x4 matrix
+ * Returns the vectors given by multiplying each 3D vector in the given list by the given 4x4 matrix
  */
 STATIC mp_obj_t v_multiply_batch(mp_obj_t vectors, mp_obj_t matrix) {
-	mp_obj_t *mat;
-	mp_obj_get_array_fixed_n(matrix, 16, &mat);
+	mp_buffer_info_t mat_buffer;
+	mp_get_buffer_raise(matrix, &mat_buffer, MP_BUFFER_READ);
 
 	size_t list_len;
 	mp_obj_t *list;
@@ -186,10 +186,10 @@ STATIC mp_obj_t v_multiply_batch(mp_obj_t vectors, mp_obj_t matrix) {
 		z = mp_obj_get_float(vec[2]);
 
 		for (size_t i = 0; i < 4; i++) {
-			xyzw[i] = x * mp_obj_get_float(mat[i])
-				+ y * mp_obj_get_float(mat[4 + i])
-				+ z * mp_obj_get_float(mat[8 + i])
-				+ mp_obj_get_float(mat[12 + i]);
+			xyzw[i] = x * ((float *)mat_buffer.buf)[i]
+				+ y * ((float *)mat_buffer.buf)[4 + i]
+				+ z * ((float *)mat_buffer.buf)[8 + i]
+				+ ((float *)mat_buffer.buf)[12 + i];
 		}
 		mp_obj_list_t *result = MP_OBJ_TO_PTR(mp_obj_new_list(3, NULL));
 		result->items[0] = mp_obj_new_float(xyzw[0] / xyzw[3]);
@@ -242,9 +242,14 @@ STATIC mp_obj_t v_cross(mp_obj_t vector1, mp_obj_t vector2) {
 STATIC MP_DEFINE_CONST_FUN_OBJ_2(v_cross_obj, v_cross);
 
 /**
- * Return screen coordinates for a list of vectors containing normalised device coordinates (NDCs),
+ * Return screen coordinates for a list of vertices containing normalised device coordinates (NDCs),
  * an NDC with x and y values of between -1.0 and 1.0 are mapped to valid screen coordinates within
  * the contraints of the given screen dimensions in pixels
+ *
+ * vectors: Vertices for a single face as a list of lists
+ * coords: A pre-allocated array of size (vertices * 2) where the screen coords will be written
+ * width: Width of the screen in pixels
+ * height: Height of the screen in pixels
  */
 STATIC mp_obj_t v_ndc_to_screen(size_t n_args, const mp_obj_t *args) {
 	size_t list_len;
@@ -271,85 +276,111 @@ STATIC mp_obj_t v_ndc_to_screen(size_t n_args, const mp_obj_t *args) {
 }
 STATIC MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(v_ndc_to_screen_obj, 4, 4, v_ndc_to_screen);
 
+// Internal helper to calculate matrix multiplication used by m_multiply, m_translate and m_rotate
+STATIC void m_multiply_internal(mp_buffer_info_t *dest, float *mat1, float *mat2) {
+	float m0[4], m1[4], m2[4], m3[4];
+
+	m0[0] = mat1[0] * mat2[0] + mat1[1] * mat2[4] + mat1[2] * mat2[8] + mat1[3] * mat2[12];
+	m0[1] = mat1[0] * mat2[1] + mat1[1] * mat2[5] + mat1[2] * mat2[9] + mat1[3] * mat2[13];
+	m0[2] = mat1[0] * mat2[2] + mat1[1] * mat2[6] + mat1[2] * mat2[10] + mat1[3] * mat2[14];
+	m0[3] = mat1[0] * mat2[3] + mat1[1] * mat2[7] + mat1[2] * mat2[11] + mat1[3] * mat2[15];
+
+	m1[0] = mat1[4] * mat2[0] + mat1[5] * mat2[4] + mat1[6] * mat2[8] + mat1[7] * mat2[12];
+	m1[1] = mat1[4] * mat2[1] + mat1[5] * mat2[5] + mat1[6] * mat2[9] + mat1[7] * mat2[13];
+	m1[2] = mat1[4] * mat2[2] + mat1[5] * mat2[6] + mat1[6] * mat2[10] + mat1[7] * mat2[14];
+	m1[3] = mat1[4] * mat2[3] + mat1[5] * mat2[7] + mat1[6] * mat2[11] + mat1[7] * mat2[15];
+
+	m2[0] = mat1[8] * mat2[0] + mat1[9] * mat2[4] + mat1[10] * mat2[8] + mat1[11] * mat2[12];
+	m2[1] = mat1[8] * mat2[1] + mat1[9] * mat2[5] + mat1[10] * mat2[9] + mat1[11] * mat2[13];
+	m2[2] = mat1[8] * mat2[2] + mat1[9] * mat2[6] + mat1[10] * mat2[10] + mat1[11] * mat2[14];
+	m2[3] = mat1[8] * mat2[3] + mat1[9] * mat2[7] + mat1[10] * mat2[11] + mat1[11] * mat2[15];
+
+	m3[0] = mat1[12] * mat2[0] + mat1[13] * mat2[4] + mat1[14] * mat2[8] + mat1[15] * mat2[12];
+	m3[1] = mat1[12] * mat2[1] + mat1[13] * mat2[5] + mat1[14] * mat2[9] + mat1[15] * mat2[13];
+	m3[2] = mat1[12] * mat2[2] + mat1[13] * mat2[6] + mat1[14] * mat2[10] + mat1[15] * mat2[14];
+	m3[3] = mat1[12] * mat2[3] + mat1[13] * mat2[7] + mat1[14] * mat2[11] + mat1[15] * mat2[15];
+
+	for (size_t i = 0; i < 4; i++) {
+		mp_binary_set_val_array(dest->typecode, dest->buf, i, mp_obj_new_float(m0[i]));
+		mp_binary_set_val_array(dest->typecode, dest->buf, i + 4, mp_obj_new_float(m1[i]));
+		mp_binary_set_val_array(dest->typecode, dest->buf, i + 8, mp_obj_new_float(m2[i]));
+		mp_binary_set_val_array(dest->typecode, dest->buf, i + 12, mp_obj_new_float(m3[i]));
+	}
+}
+
 /**
- * Returns the matrix given by multiplying together the two given 4x4 matrices
+ * Multiplies the given 4x4 matrix by the second given 4x4 matrix
  */
 STATIC mp_obj_t m_multiply(mp_obj_t matrix1, mp_obj_t matrix2) {
-	mp_obj_t *mat1, *mat2;
-	mp_obj_get_array_fixed_n(matrix1, 16, &mat1);
-	mp_obj_get_array_fixed_n(matrix2, 16, &mat2);
+	mp_buffer_info_t mat1_buffer, mat2_buffer;
+	mp_get_buffer_raise(matrix1, &mat1_buffer, MP_BUFFER_RW);
+	mp_get_buffer_raise(matrix2, &mat2_buffer, MP_BUFFER_READ);
 
-	// We are assuming here that both operands are 4x4 matrices, but you could make these loops work
-	// for multiplying arbitrarily sized matrices if the number of rows on the LHS is equal to the
-	// number of columns on the RHS
-	mp_obj_list_t *result = MP_OBJ_TO_PTR(mp_obj_new_list(16, NULL));
-	for (size_t i = 0; i < 4; i++) { // Num of rows on the LHS
-		for (size_t j = 0; j < 4; j++) { // Num of cols on the RHS
-			mp_float_t val = 0;
-			val += mp_obj_get_float(mat1[i * 4 + 0]) * mp_obj_get_float(mat2[0 + j]);
-			val += mp_obj_get_float(mat1[i * 4 + 1]) * mp_obj_get_float(mat2[4 + j]);
-			val += mp_obj_get_float(mat1[i * 4 + 2]) * mp_obj_get_float(mat2[8 + j]);
-			val += mp_obj_get_float(mat1[i * 4 + 3]) * mp_obj_get_float(mat2[12 + j]);
-			result->items[i * 4 + j] = mp_obj_new_float(val);
-		}
-	}
-	return MP_OBJ_FROM_PTR(result);
+	// Perform the multiplication
+	m_multiply_internal(&mat1_buffer, ((float *)mat1_buffer.buf), ((float *)mat2_buffer.buf));
+	return mp_const_none;
 }
 STATIC MP_DEFINE_CONST_FUN_OBJ_2(m_multiply_obj, m_multiply);
 
 /**
- * Returns the matrix given by translating the given 4x4 matrix by the given 3D vector
+ * Translates the given 4x4 matrix by the given 3D vector
  */
 STATIC mp_obj_t m_translate(mp_obj_t matrix, mp_obj_t vector) {
+	mp_buffer_info_t mat_buffer;
+	mp_get_buffer_raise(matrix, &mat_buffer, MP_BUFFER_RW);
+
+	// Generate the translation matrix
 	mp_obj_t *vec;
 	mp_obj_get_array_fixed_n(vector, 3, &vec);
+	float trans_mat[16] = {
+		1, 0, 0, 0,
+		0, 1, 0, 0,
+		0, 0, 1, 0,
+		0, 0, 0, 1
+	};
+	trans_mat[12] = mp_obj_get_float(vec[0]);
+	trans_mat[13] = mp_obj_get_float(vec[1]);
+	trans_mat[14] = mp_obj_get_float(vec[2]);
 
-	mp_obj_list_t *trans_mat = MP_OBJ_TO_PTR(mp_obj_new_list(16, NULL));
-	for (size_t i = 0; i < 4; i++) {
-		for (size_t j = 0; j < 4; j++) {
-			if (i == j) {
-				trans_mat->items[i * 4 + j] = mp_obj_new_float(1);
-			} else {
-				trans_mat->items[i * 4 + j] = mp_obj_new_float(0);
-			}
-		}
-	}
-	trans_mat->items[12] = mp_obj_new_float(mp_obj_get_float(vec[0]));
-	trans_mat->items[13] = mp_obj_new_float(mp_obj_get_float(vec[1]));
-	trans_mat->items[14] = mp_obj_new_float(mp_obj_get_float(vec[2]));
-	return m_multiply(matrix, MP_OBJ_FROM_PTR(trans_mat));
+	// Perform the multiplication
+	m_multiply_internal(&mat_buffer, ((float *)mat_buffer.buf), trans_mat);
+	return mp_const_none;
 }
 STATIC MP_DEFINE_CONST_FUN_OBJ_2(m_translate_obj, m_translate);
 
 /**
- * Returns the matrix given by rotating the given 4x4 matrix by the given quaternion
+ * Rotates the given 4x4 matrix by the given quaternion
  */
 STATIC mp_obj_t m_rotate(mp_obj_t matrix, mp_obj_t quaternion) {
+	mp_buffer_info_t mat_buffer;
+	mp_get_buffer_raise(matrix, &mat_buffer, MP_BUFFER_RW);
+
+	// Generate the rotation matrix
 	mp_obj_t *quat;
 	mp_obj_get_array_fixed_n(quaternion, 4, &quat);
 	mp_float_t w = mp_obj_get_float(quat[0]);
 	mp_float_t x = mp_obj_get_float(quat[1]);
 	mp_float_t y = mp_obj_get_float(quat[2]);
 	mp_float_t z = mp_obj_get_float(quat[3]);
+	float rot_mat[16] = {
+		1, 0, 0, 0,
+		0, 1, 0, 0,
+		0, 0, 1, 0,
+		0, 0, 0, 1
+	};
+	rot_mat[0] = 1 - 2 * (y * y + z * z);
+	rot_mat[1] = 2 * (x * y - w * z);
+	rot_mat[2] = 2 * (x * z + w * y);
+	rot_mat[4] = 2 * (x * y + w * z);
+	rot_mat[5] = 1 - 2 * (x * x + z * z);
+	rot_mat[6] = 2 * (y * z - w * x);
+	rot_mat[8] = 2 * (x * z - w * y);
+	rot_mat[9] = 2 * (y * z + w * x);
+	rot_mat[10] = 1 - 2 * (x * x + y * y);
 
-	mp_obj_list_t *rot_mat = MP_OBJ_TO_PTR(mp_obj_new_list(16, NULL));
-	rot_mat->items[0] = mp_obj_new_float(1 - 2 * (y * y + z * z));
-	rot_mat->items[1] = mp_obj_new_float(2 * (x * y - w * z));
-	rot_mat->items[2] = mp_obj_new_float(2 * (x * z + w * y));
-	rot_mat->items[3] = mp_obj_new_float(0);
-	rot_mat->items[4] = mp_obj_new_float(2 * (x * y + w * z));
-	rot_mat->items[5] = mp_obj_new_float(1 - 2 * (x * x + z * z));
-	rot_mat->items[6] = mp_obj_new_float(2 * (y * z - w * x));
-	rot_mat->items[7] = mp_obj_new_float(0);
-	rot_mat->items[8] = mp_obj_new_float(2 * (x * z - w * y));
-	rot_mat->items[9] = mp_obj_new_float(2 * (y * z + w * x));
-	rot_mat->items[10] = mp_obj_new_float(1 - 2 * (x * x + y * y));
-	rot_mat->items[11] = mp_obj_new_float(0);
-	rot_mat->items[12] = mp_obj_new_float(0);
-	rot_mat->items[13] = mp_obj_new_float(0);
-	rot_mat->items[14] = mp_obj_new_float(0);
-	rot_mat->items[15] = mp_obj_new_float(1);
-	return m_multiply(matrix, MP_OBJ_FROM_PTR(rot_mat));
+	// Perform the multiplication
+	m_multiply_internal(&mat_buffer, ((float *)mat_buffer.buf), rot_mat);
+	return mp_const_none;
 }
 STATIC MP_DEFINE_CONST_FUN_OBJ_2(m_rotate_obj, m_rotate);
 

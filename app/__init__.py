@@ -36,7 +36,8 @@ class Renderer(App):
         # Camera position and view transformation matrix
         # TODO a proper camera system
         self.v_campos = [0, 10, 35]
-        self.m_view = m_translate(Renderer.identity_matrix(), [0, -10, -35])
+        self.m_view = Renderer.identity_matrix()
+        m_translate(self.m_view, [0, -10, -35])
 
         # Lighting vector
         self.v_light = v_normalise([-1,-1,-1])
@@ -55,7 +56,7 @@ class Renderer(App):
         Returns the identity matrix, multiplication of any matrix M with the identity matrix will yield the
         original matrix M
         """
-        return [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1]
+        return array('f', [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1])
 
     @staticmethod
     def perspective_matrix(fov, aspect, near, far):
@@ -76,7 +77,7 @@ class Renderer(App):
         proj_mat[11] = -1
         proj_mat[15] = 0
 
-        return proj_mat
+        return array('f', proj_mat)
 
     def on_activate(self):
         super().on_activate()
@@ -179,9 +180,10 @@ class Renderer(App):
         # matrix, which is specific to the mesh being rendered (create world coordinates)
         # Note that translating doesn't mean anything for vectors, so normals are rotated only, and vertices
         # are both rotated and translated
-        m_model = m_rotate(Renderer.identity_matrix(), mesh.orientation)
+        m_model = Renderer.identity_matrix()
+        m_rotate(m_model, mesh.orientation)
         norms = v_multiply_batch(mesh.normals, m_model)
-        m_model = m_translate(m_model, mesh.position)
+        m_translate(m_model, mesh.position)
         verts = v_multiply_batch(mesh.vertices, m_model)
 
         # Generate a list of faces and their projected vertices for rendering
