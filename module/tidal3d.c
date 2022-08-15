@@ -1,5 +1,7 @@
-#include "py/runtime.h"
 #include <math.h>
+
+#include "py/runtime.h"
+#include "py/binary.h"
 
 // Pre-computed PI over 180
 #define DEGS_TO_RADS (0.017453)
@@ -244,29 +246,30 @@ STATIC MP_DEFINE_CONST_FUN_OBJ_2(v_cross_obj, v_cross);
  * an NDC with x and y values of between -1.0 and 1.0 are mapped to valid screen coordinates within
  * the contraints of the given screen dimensions in pixels
  */
-STATIC mp_obj_t v_ndc_to_screen(mp_obj_t vectors, mp_obj_t width, mp_obj_t height) {
+STATIC mp_obj_t v_ndc_to_screen(size_t n_args, const mp_obj_t *args) {
 	size_t list_len;
 	mp_obj_t *vecs, *vec;
-	mp_obj_get_array(vectors, &list_len, &vecs);
+	mp_obj_get_array(args[0], &list_len, &vecs);
 
-	mp_float_t w = mp_obj_get_float(width);
-	mp_float_t h = mp_obj_get_float(height);
+	mp_buffer_info_t bufinfo;
+	mp_get_buffer_raise(args[1], &bufinfo, MP_BUFFER_WRITE);
 
-	mp_obj_list_t *result = MP_OBJ_TO_PTR(mp_obj_new_list(list_len * 2, NULL));
+	mp_float_t w = mp_obj_get_float(args[2]);
+	mp_float_t h = mp_obj_get_float(args[3]);
 
 	for (size_t i = 0; i < list_len; i++) {
 		mp_obj_get_array_fixed_n(vecs[i], 3, &vec);
 
-		mp_float_t x = (mp_obj_get_float(vec[0]) + 1) * 0.5 * w;
-		mp_float_t y = (1 - (mp_obj_get_float(vec[1]) + 1) * 0.5) * h;
+		mp_int_t x = (mp_obj_get_float(vec[0]) + 1) * 0.5 * w;
+		mp_int_t y = (1 - (mp_obj_get_float(vec[1]) + 1) * 0.5) * h;
 
-		result->items[i * 2] = mp_obj_new_int(x);
-		result->items[i * 2 + 1] = mp_obj_new_int(y);
+		mp_binary_set_val_array_from_int(bufinfo.typecode, bufinfo.buf, i * 2, x);
+		mp_binary_set_val_array_from_int(bufinfo.typecode, bufinfo.buf, i * 2 + 1, y);
 	}
 
-	return MP_OBJ_FROM_PTR(result);
+	return mp_const_none;
 }
-STATIC MP_DEFINE_CONST_FUN_OBJ_3(v_ndc_to_screen_obj, v_ndc_to_screen);
+STATIC MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(v_ndc_to_screen_obj, 4, 4, v_ndc_to_screen);
 
 /**
  * Returns the matrix given by multiplying together the two given 4x4 matrices

@@ -1,4 +1,5 @@
 from app import App
+from array import array
 from buttons import _num
 from math import radians, tan
 from micropython import const
@@ -234,6 +235,7 @@ class Renderer(App):
 
         # Render faces
         framebuffer = self.fb
+        coords = array('h', [0] * 6)
         for indices, norm_index, col_index, _ in faces:
 
             # If a face's projected vertices all lie outside the viewable space (x or y is more than 1
@@ -255,7 +257,7 @@ class Renderer(App):
             #        y = (1 - (v[1] + 1) * 0.5) * height
             # Obviously the y axis here is inverted because screens tend to have the origin 0,0 at the
             # top left and increases towards the bottom
-            coords = v_ndc_to_screen(face_verts, framebuffer.width, framebuffer.height)
+            v_ndc_to_screen(face_verts, coords, framebuffer.width, framebuffer.height)
 
             colour = WHITE
             if self.render_mode > MODE_POINT_CLOUD and self.render_mode < MODE_SOLID_SHADED:
