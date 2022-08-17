@@ -40,7 +40,7 @@ class Renderer(App):
         m_translate(self.m_view, [0, -10, -35])
 
         # Lighting vector
-        self.v_light = v_normalise([-1,-1,-1])
+        self.v_light = v_normalise([-1,-1,-2])
 
         # Model to render
         self.mesh = Mesh(self.render_object)
@@ -113,16 +113,16 @@ class Renderer(App):
         self.mesh = Mesh(self.render_object)
 
     def button_left(self):
-        self.mesh.angular[1] = 45
+        self.mesh.rotate_y(45)
 
     def button_right(self):
-        self.mesh.angular[1] = -45
+        self.mesh.rotate_y(-45)
 
     def button_up(self):
-        self.mesh.angular[0] = 45
+        self.mesh.rotate_x(45)
 
     def button_down(self):
-        self.mesh.angular[0] = -45
+        self.mesh.rotate_x(-45)
 
     def _get_button_state(self, pin):
         # Buttons are active so invert to make truthy mean pressed, which seems more intuitive
@@ -158,9 +158,9 @@ class Renderer(App):
     def update(self, delta_t):
         # Kill velocity if buttons no longer pressed
         if not self._get_button_state(JOY_LEFT) and not self._get_button_state(JOY_RIGHT):
-            self.mesh.angular[1] = 0
+            self.mesh.rotate_y(0)
         if not self._get_button_state(JOY_UP) and not self._get_button_state(JOY_DOWN):
-            self.mesh.angular[0] = 0
+            self.mesh.rotate_x(0)
 
         self.mesh.update(delta_t)
 

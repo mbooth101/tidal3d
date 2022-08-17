@@ -32,6 +32,12 @@ class Mesh:
         self.orientation = array('f', [1, 0, 0, 0])
         self.angular = [0, 0, 0]
 
+    def rotate_y(self, val):
+        self.angular[1] = val
+
+    def rotate_x(self, val):
+        self.angular[0] = val
+
     def _load(self, filename):
         # Parse the geometry file
         op = ObjectParser()
