@@ -352,16 +352,15 @@ STATIC MP_DEFINE_CONST_FUN_OBJ_2(m_translate_obj, m_translate);
  * Rotates the given 4x4 matrix by the given quaternion
  */
 STATIC mp_obj_t m_rotate(mp_obj_t matrix, mp_obj_t quaternion) {
-	mp_buffer_info_t mat_buffer;
+	mp_buffer_info_t mat_buffer, quat_buffer;
 	mp_get_buffer_raise(matrix, &mat_buffer, MP_BUFFER_RW);
+	mp_get_buffer_raise(quaternion, &quat_buffer, MP_BUFFER_READ);
 
 	// Generate the rotation matrix
-	mp_obj_t *quat;
-	mp_obj_get_array_fixed_n(quaternion, 4, &quat);
-	mp_float_t w = mp_obj_get_float(quat[0]);
-	mp_float_t x = mp_obj_get_float(quat[1]);
-	mp_float_t y = mp_obj_get_float(quat[2]);
-	mp_float_t z = mp_obj_get_float(quat[3]);
+	float w = ((float *)quat_buffer.buf)[0];
+	float x = ((float *)quat_buffer.buf)[1];
+	float y = ((float *)quat_buffer.buf)[2];
+	float z = ((float *)quat_buffer.buf)[3];
 	float rot_mat[16] = {
 		1, 0, 0, 0,
 		0, 1, 0, 0,
@@ -385,35 +384,35 @@ STATIC mp_obj_t m_rotate(mp_obj_t matrix, mp_obj_t quaternion) {
 STATIC MP_DEFINE_CONST_FUN_OBJ_2(m_rotate_obj, m_rotate);
 
 /**
- * Returns the quaternion given by rotating the given quaternion by the given number of degrees
- * around the axis described by the given 3D vector
+ * Rotates the given quaternion by the given number of degrees around the axis described by the
+ * given 3D vector
  */
 STATIC mp_obj_t q_rotate(mp_obj_t quaternion, mp_obj_t degrees, mp_obj_t vector) {
-	mp_obj_t *vec, *quat;
+	mp_buffer_info_t quat_buffer;
+	mp_get_buffer_raise(quaternion, &quat_buffer, MP_BUFFER_RW);
 
-	mp_obj_get_array_fixed_n(quaternion, 4, &quat);
+	mp_obj_t *vec;
 	mp_obj_get_array_fixed_n(vector, 3, &vec);
 
-	mp_float_t q1w = mp_obj_get_float(quat[0]);
-	mp_float_t q1x = mp_obj_get_float(quat[1]);
-	mp_float_t q1y = mp_obj_get_float(quat[2]);
-	mp_float_t q1z = mp_obj_get_float(quat[3]);
+	float q1w = ((float *)quat_buffer.buf)[0];
+	float q1x = ((float *)quat_buffer.buf)[1];
+	float q1y = ((float *)quat_buffer.buf)[2];
+	float q1z = ((float *)quat_buffer.buf)[3];
 
 	// Compute a rotation quaternion from the angle and vector
-	mp_float_t theta = (mp_obj_get_float(degrees) * DEGS_TO_RADS) / 2;
-	mp_float_t factor = sin(theta);
-	mp_float_t q2w = cos(theta);
-	mp_float_t q2x = mp_obj_get_float(vec[0]) * factor;
-	mp_float_t q2y = mp_obj_get_float(vec[1]) * factor;
-	mp_float_t q2z = mp_obj_get_float(vec[2]) * factor;
+	float theta = (mp_obj_get_float(degrees) * DEGS_TO_RADS) / 2;
+	float factor = sin(theta);
+	float q2w = cos(theta);
+	float q2x = mp_obj_get_float(vec[0]) * factor;
+	float q2y = mp_obj_get_float(vec[1]) * factor;
+	float q2z = mp_obj_get_float(vec[2]) * factor;
 
 	// Multiply the given quaternion by the rotation quaternion
-	mp_obj_list_t *result = MP_OBJ_TO_PTR(mp_obj_new_list(4, NULL));
-	result->items[0] = mp_obj_new_float(q1w * q2w - q1x * q2x - q1y * q2y - q1z * q2z);
-	result->items[1] = mp_obj_new_float(q1w * q2x + q1x * q2w + q1y * q2z - q1z * q2y);
-	result->items[2] = mp_obj_new_float(q1w * q2y - q1x * q2z + q1y * q2w + q1z * q2x);
-	result->items[3] = mp_obj_new_float(q1w * q2z + q1x * q2y - q1y * q2x + q1z * q2w);
-	return MP_OBJ_FROM_PTR(result);
+	mp_binary_set_val_array(quat_buffer.typecode, quat_buffer.buf, 0, mp_obj_new_float(q1w * q2w - q1x * q2x - q1y * q2y - q1z * q2z));
+	mp_binary_set_val_array(quat_buffer.typecode, quat_buffer.buf, 1, mp_obj_new_float(q1w * q2x + q1x * q2w + q1y * q2z - q1z * q2y));
+	mp_binary_set_val_array(quat_buffer.typecode, quat_buffer.buf, 2, mp_obj_new_float(q1w * q2y - q1x * q2z + q1y * q2w + q1z * q2x));
+	mp_binary_set_val_array(quat_buffer.typecode, quat_buffer.buf, 3, mp_obj_new_float(q1w * q2z + q1x * q2y - q1y * q2x + q1z * q2w));
+	return mp_const_none;
 }
 STATIC MP_DEFINE_CONST_FUN_OBJ_3(q_rotate_obj, q_rotate);
 

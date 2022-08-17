@@ -1,3 +1,4 @@
+from array import array
 from tidal3d import *
 
 
@@ -28,7 +29,7 @@ class Mesh:
         self.velocity = [0, 0, 0]
 
         # Orientation and angular velocity
-        self.orientation = [1, 0, 0, 0]
+        self.orientation = array('f', [1, 0, 0, 0])
         self.angular = [0, 0, 0]
 
     def _load(self, filename):
@@ -76,7 +77,7 @@ class Mesh:
         # Rotate ourselves around the axis
         degrees = v_magnitude(self.angular)
         axis = v_normalise(self.angular)
-        self.orientation = q_rotate(self.orientation, degrees * delta_t, axis)
+        q_rotate(self.orientation, degrees * delta_t, axis)
 
 
 class ParserInterface:
