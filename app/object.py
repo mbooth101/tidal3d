@@ -27,10 +27,12 @@ class Mesh:
         # Position and linear velocity
         self.position = [0, 0, 0]
         self.velocity = [0, 0, 0]
+        self.delta_v = [0, 0, 0]
 
         # Orientation and angular velocity
         self.orientation = array('f', [1, 0, 0, 0])
         self.angular = [0, 0, 0]
+        self.axis = [0, 0, 0]
 
     def rotate_y(self, val):
         self.angular[1] = val
@@ -48,11 +50,13 @@ class Mesh:
 
         # Pre-calculate face normal vectors, a normal is the direction exactly perpendicular to
         # the plane of the face, the direction the front of the face is pointing
+        a = [0, 0, 0]
+        b = [0, 0, 0]
         for face in self.vert_indices:
-            a = self.vertices[face[0]]
-            b = self.vertices[face[1]]
-            c = self.vertices[face[2]]
-            normal = v_normalise(v_cross(v_subtract(a, b), v_subtract(b, c)))
+            v_subtract(self.vertices[face[0]], self.vertices[face[1]], a)
+            v_subtract(self.vertices[face[1]], self.vertices[face[2]], b)
+            normal = v_cross(a, b)
+            v_normalise(normal)
             if normal not in self.normals:
                 self.normals.append(normal)
             self.norm_indices.append(self.normals.index(normal))
@@ -79,11 +83,12 @@ class Mesh:
 
     def update(self, delta_t):
         # Move our position by our velocity
-        self.position = v_add(self.position, v_scale(self.velocity, delta_t))
+        v_scale(self.velocity, delta_t, self.delta_v)
+        v_add(self.position, self.delta_v)
         # Rotate ourselves around the axis
         degrees = v_magnitude(self.angular)
-        axis = v_normalise(self.angular)
-        q_rotate(self.orientation, degrees * delta_t, axis)
+        v_normalise(self.angular, self.axis)
+        q_rotate(self.orientation, degrees * delta_t, self.axis)
 
 
 class ParserInterface:

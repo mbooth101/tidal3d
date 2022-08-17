@@ -29,92 +29,103 @@ STATIC mp_obj_t v_magnitude(mp_obj_t vector) {
 STATIC MP_DEFINE_CONST_FUN_OBJ_1(v_magnitude_obj, v_magnitude);
 
 /**
- * Returns the given vector normalised to unit length
+ * Normalises the given vector to unit length
  */
-STATIC mp_obj_t v_normalise(mp_obj_t vector) {
-	size_t len;
-	mp_obj_t *vec;
-	mp_obj_get_array(vector, &len, &vec);
+STATIC mp_obj_t v_normalise(size_t n_args, const mp_obj_t *args) {
+	mp_obj_t *vec, *dest;
+	mp_obj_get_array_fixed_n(args[0], 3, &vec);
+	if (n_args > 1) {
+		mp_obj_get_array_fixed_n(args[1], 3, &dest);
+	} else {
+		dest = vec;
+	}
 
-	mp_float_t mag = v_magnitude_internal(vec, len);
+	mp_float_t mag = v_magnitude_internal(vec, 3);
 
-	mp_obj_list_t *result = MP_OBJ_TO_PTR(mp_obj_new_list(len, NULL));
-	for (size_t i = 0; i < len; i++) {
+	for (size_t i = 0; i < 3; i++) {
 		mp_float_t f = mp_obj_get_float(vec[i]);
 		// Avoid divide by zero on zero-length vectors
 		if (mag == 0) {
-			result->items[i] = mp_obj_new_float(f);
+			dest[i] = mp_obj_new_float(f);
 		} else {
-			result->items[i] = mp_obj_new_float(f / mag);
+			dest[i] = mp_obj_new_float(f / mag);
 		}
 	}
-	return MP_OBJ_FROM_PTR(result);
+	return mp_const_none;
 }
-STATIC MP_DEFINE_CONST_FUN_OBJ_1(v_normalise_obj, v_normalise);
+STATIC MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(v_normalise_obj, 1, 2, v_normalise);
 
 /**
- * Returns the given vector scaled by the given factor
+ * Scales the given vector by the given scalar factor
  */
-STATIC mp_obj_t v_scale(mp_obj_t vector, mp_obj_t factor) {
-	size_t len;
-	mp_obj_t *vec;
-	mp_obj_get_array(vector, &len, &vec);
+STATIC mp_obj_t v_scale(size_t n_args, const mp_obj_t *args) {
+	mp_obj_t *vec, *dest;
+	mp_obj_get_array_fixed_n(args[0], 3, &vec);
 
-	mp_float_t f = mp_obj_get_float(factor);
+	mp_float_t f = mp_obj_get_float(args[1]);
 
-	mp_obj_list_t *result = MP_OBJ_TO_PTR(mp_obj_new_list(len, NULL));
-	for (size_t i = 0; i < len; i++) {
-		result->items[i] = mp_obj_new_float(mp_obj_get_float(vec[i]) * f);
+	if (n_args > 2) {
+		mp_obj_get_array_fixed_n(args[2], 3, &dest);
+	} else {
+		dest = vec;
 	}
-	return MP_OBJ_FROM_PTR(result);
-}
-STATIC MP_DEFINE_CONST_FUN_OBJ_2(v_scale_obj, v_scale);
 
-/**
- * Returns the vector given by the sum of the given vectors
- */
-STATIC mp_obj_t v_add(mp_obj_t vector1, mp_obj_t vector2) {
-	size_t len1, len2;
-	mp_obj_t *vec1, *vec2;
-	mp_obj_get_array(vector1, &len1, &vec1);
-	mp_obj_get_array(vector2, &len2, &vec2);
-
-	size_t len = (len1 < len2 ? len1 : len2);
-	mp_obj_list_t *result = MP_OBJ_TO_PTR(mp_obj_new_list(len, NULL));
-	for (size_t i = 0; i < len; i++) {
-		result->items[i] = mp_obj_new_float(mp_obj_get_float(vec1[i]) + mp_obj_get_float(vec2[i]));
+	for (size_t i = 0; i < 3; i++) {
+		dest[i] = mp_obj_new_float(mp_obj_get_float(vec[i]) * f);
 	}
-	return MP_OBJ_FROM_PTR(result);
+	return mp_const_none;
 }
-STATIC MP_DEFINE_CONST_FUN_OBJ_2(v_add_obj, v_add);
+STATIC MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(v_scale_obj, 2, 3, v_scale);
 
 /**
- * Returns the vector given by subtracting the second vector from the first vector
+ * Adds the second given 3D vector to the first given 3D vector
  */
-STATIC mp_obj_t v_subtract(mp_obj_t vector1, mp_obj_t vector2) {
-	size_t len1, len2;
-	mp_obj_t *vec1, *vec2;
-	mp_obj_get_array(vector1, &len1, &vec1);
-	mp_obj_get_array(vector2, &len2, &vec2);
-
-	size_t len = (len1 < len2 ? len1 : len2);
-	mp_obj_list_t *result = MP_OBJ_TO_PTR(mp_obj_new_list(len, NULL));
-	for (size_t i = 0; i < len; i++) {
-		result->items[i] = mp_obj_new_float(mp_obj_get_float(vec1[i]) - mp_obj_get_float(vec2[i]));
+STATIC mp_obj_t v_add(size_t n_args, const mp_obj_t *args) {
+	mp_obj_t *vec1, *vec2, *dest;
+	mp_obj_get_array_fixed_n(args[0], 3, &vec1);
+	mp_obj_get_array_fixed_n(args[1], 3, &vec2);
+	if (n_args > 2) {
+		mp_obj_get_array_fixed_n(args[2], 3, &dest);
+	} else {
+		dest = vec1;
 	}
-	return MP_OBJ_FROM_PTR(result);
+
+	for (size_t i = 0; i < 3; i++) {
+		dest[i] = mp_obj_new_float(mp_obj_get_float(vec1[i]) + mp_obj_get_float(vec2[i]));
+	}
+	return mp_const_none;
 }
-STATIC MP_DEFINE_CONST_FUN_OBJ_2(v_subtract_obj, v_subtract);
+STATIC MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(v_add_obj, 2, 3, v_add);
 
 /**
- * Returns the vector that is the average of the list of given vectors, although this can be
- * expressed as a composition of v_add and v_scale, this common operation is much quicker done
- * as a single call
+ * Subtracts the second given 3D vector from the first given 3D vector
  */
-STATIC mp_obj_t v_average(mp_obj_t vectors) {
+STATIC mp_obj_t v_subtract(size_t n_args, const mp_obj_t *args) {
+	mp_obj_t *vec1, *vec2, *dest;
+	mp_obj_get_array_fixed_n(args[0], 3, &vec1);
+	mp_obj_get_array_fixed_n(args[1], 3, &vec2);
+	if (n_args > 2) {
+		mp_obj_get_array_fixed_n(args[2], 3, &dest);
+	} else {
+		dest = vec1;
+	}
+
+	for (size_t i = 0; i < 3; i++) {
+		dest[i] = mp_obj_new_float(mp_obj_get_float(vec1[i]) - mp_obj_get_float(vec2[i]));
+	}
+	return mp_const_none;
+}
+STATIC MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(v_subtract_obj, 2, 3, v_subtract);
+
+/**
+ * Averages the list of given vectors, although this can be expressed as a composition of v_add
+ * and v_scale, it is much quicker done as a single call
+ */
+STATIC mp_obj_t v_average(size_t n_args, const mp_obj_t *args) {
 	size_t list_len;
-	mp_obj_t *list;
-	mp_obj_get_array(vectors, &list_len, &list);
+	mp_obj_t *list, *dest;
+	mp_obj_get_array(args[0], &list_len, &list);
+	mp_obj_get_array_fixed_n(args[1], 3, &dest);
 
 	mp_float_t x = 0, y = 0, z = 0;
 
@@ -126,13 +137,12 @@ STATIC mp_obj_t v_average(mp_obj_t vectors) {
 		z += mp_obj_get_float(vec[2]);
 	}
 
-	mp_obj_list_t *result = MP_OBJ_TO_PTR(mp_obj_new_list(3, NULL));
-	result->items[0] = mp_obj_new_float(x / list_len);
-	result->items[1] = mp_obj_new_float(y / list_len);
-	result->items[2] = mp_obj_new_float(z / list_len);
-	return MP_OBJ_FROM_PTR(result);
+	dest[0] = mp_obj_new_float(x / list_len);
+	dest[1] = mp_obj_new_float(y / list_len);
+	dest[2] = mp_obj_new_float(z / list_len);
+	return mp_const_none;
 }
-STATIC MP_DEFINE_CONST_FUN_OBJ_1(v_average_obj, v_average);
+STATIC MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(v_average_obj, 2, 2, v_average);
 
 /**
  * Returns the vector given by multiplying the given 3D vector by the given 4x4 matrix

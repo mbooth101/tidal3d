@@ -40,7 +40,8 @@ class Renderer(App):
         m_translate(self.m_view, [0, -10, -35])
 
         # Lighting vector
-        self.v_light = v_normalise([-1,-1,-2])
+        self.v_light = [-1, -1, -2]
+        v_normalise(self.v_light)
 
         # Model to render
         self.mesh = Mesh(self.render_object)
@@ -90,7 +91,7 @@ class Renderer(App):
         self.buttons.on_press(JOY_LEFT, self.button_left, False)
         self.buttons.on_press(JOY_RIGHT, self.button_right, False)
 
-        self.start_t = time.ticks_ms()
+        self.start_t = time.ticks_us()
         self.loop()
 
     def on_deactivate(self):
@@ -130,11 +131,11 @@ class Renderer(App):
 
     def loop(self):
         last_t = self.start_t
-        self.start_t = time.ticks_ms()
+        self.start_t = time.ticks_us()
         delta_t = time.ticks_diff(self.start_t, last_t)
 
         # Update the simulation
-        self.update(delta_t / 1000)
+        self.update(delta_t / 1000000)
 
         # Render the scene
         self.render_background()
@@ -145,13 +146,13 @@ class Renderer(App):
         # Calculate frames per second
         self.frame_counter += 1
         self.accum_t += delta_t
-        if self.accum_t > 1000:
-            self.accum_t -= 1000
+        if self.accum_t > 1000000:
+            self.accum_t -= 1000000
             self.fps = self.frame_counter
             self.frame_counter = 0
 
         # Show the time it took to render the frame
-        print("{} ms".format(delta_t))
+        print("{:,} us".format(delta_t))
 
         self.timer = self.after(1, self.loop)
 
@@ -186,15 +187,22 @@ class Renderer(App):
         m_translate(m_model, mesh.position)
         verts = v_multiply_batch(mesh.vertices, m_model)
 
+        # Pre-allocated space for calculations to minimise object instantiations, which really helps with
+        # performance sensitive applications like this
+        camera = [0, 0, 0]
+        centre = [0, 0, 0]
+        rgb = [0, 0, 0]
+
         # Generate a list of faces and their projected vertices for rendering
         faces = []
         projected_verts = [None] * len(verts)
         for indices, norm_index, col_index in mesh.faces:
             # Calculate the point in the centre of the face
-            centre = v_average([verts[indices[0]], verts[indices[1]], verts[indices[2]]])
+            v_average([verts[indices[0]], verts[indices[1]], verts[indices[2]]], centre)
 
             # Calculate the vector of the direction to the camera from the centre of the face
-            camera = v_normalise(v_subtract(self.v_campos, centre))
+            v_subtract(self.v_campos, centre, camera)
+            v_normalise(camera)
 
             # Now we use the dot product to determine if the front of the face is pointing at the
             # camera; if the angle between the normal vector and the camera vector is greater than
@@ -264,14 +272,13 @@ class Renderer(App):
             colour = WHITE
             if self.render_mode > MODE_POINT_CLOUD and self.render_mode < MODE_SOLID_SHADED:
                 # Solid, unshaded colour
-                rgb = mesh.colours[col_index]
-                colour = color565(rgb[0], rgb[1], rgb[2])
+                colour = color565(mesh.colours[col_index][0], mesh.colours[col_index][1], mesh.colours[col_index][2])
             elif self.render_mode >= MODE_SOLID_SHADED:
                 # Scale the color by the angle of incidence of the light vector so a face appears
                 # more brightly lit the closer to orthogonal it is, but clamp to a minimum value
                 # so unlit faces are not totally invisible, simulating a bit of ambient light
                 dot = v_dot(norms[norm_index], self.v_light)
-                rgb = v_scale(mesh.colours[col_index], -dot)
+                v_scale(mesh.colours[col_index], -dot, rgb)
                 colour = color565(max(int(rgb[0]), 8), max(int(rgb[1]), 8), max(int(rgb[2]), 8))
 
             # Draw to the framebuffer using screen coordinates
