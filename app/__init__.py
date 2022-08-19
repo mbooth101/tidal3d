@@ -166,15 +166,18 @@ class Renderer(App):
         self.mesh.update(delta_t)
 
     def render_background(self):
+        fb = self.fb
+
         # Just clear the framebuffer by filling it with a solid colour
-        self.fb.rect(0, 0, self.fb.width, self.fb.height, BLACK, True)
+        fb.rect(0, 0, fb.width, fb.height, BLACK, True)
 
         # Show some instructions on screen
-        self.fb.text("A = RENDER MODE", 0, 0, WHITE)
-        self.fb.text("B = NEXT OBJECT", 0, 10, WHITE)
-        self.fb.text("JOY = ROTATE", 0, 20, WHITE)
+        fb.text("A = RENDER MODE", 0, 0, WHITE)
+        fb.text("B = NEXT OBJECT", 0, 10, WHITE)
+        fb.text("JOY = ROTATE", 0, 20, WHITE)
 
     def render_scene(self):
+        fb = self.fb
         mesh = self.mesh
 
         # Transform all vertices to their positions in the world by multiplying by the model transformation
@@ -195,9 +198,13 @@ class Renderer(App):
 
         # Generate a list of faces and their projected vertices for rendering
         faces = []
+        face_verts = [None, None, None]
         for indices, norm_index, col_index in mesh.faces:
             # Calculate the point in the centre of the face
-            v_average([mesh.vertices_trans[indices[0]], mesh.vertices_trans[indices[1]], mesh.vertices_trans[indices[2]]], centre)
+            face_verts[0] = mesh.vertices_trans[indices[0]]
+            face_verts[1] = mesh.vertices_trans[indices[1]]
+            face_verts[2] = mesh.vertices_trans[indices[2]]
+            v_average(face_verts, centre)
 
             # Calculate the vector of the direction to the camera from the centre of the face
             v_subtract(self.v_campos, centre, camera)
@@ -225,9 +232,7 @@ class Renderer(App):
         projected_verts = [False] * len(mesh.vertices)
 
         # Render faces
-        framebuffer = self.fb
         coords = array('h', [0] * 6)
-        face_verts = [None, None, None]
         for indices, norm_index, col_index, _ in faces:
 
             visible = False
@@ -272,7 +277,7 @@ class Renderer(App):
             #        y = (1 - (v[1] + 1) * 0.5) * height
             # Obviously the y axis here is inverted because screens tend to have the origin 0,0 at the
             # top left and increases towards the bottom
-            v_ndc_to_screen(face_verts, coords, framebuffer.width, framebuffer.height)
+            v_ndc_to_screen(face_verts, coords, fb.width, fb.height)
 
             colour = WHITE
             if self.render_mode > MODE_POINT_CLOUD and self.render_mode < MODE_SOLID_SHADED:
@@ -289,11 +294,11 @@ class Renderer(App):
 
             # Draw to the framebuffer using screen coordinates
             if self.render_mode == MODE_POINT_CLOUD:
-                framebuffer.points(coords, colour)
+                fb.points(coords, colour)
             elif self.render_mode == MODE_WIREFRAME_FULL or self.render_mode == MODE_WIREFRAME_BACK_FACE_CULLING:
-                framebuffer.polygon(coords, colour)
+                fb.polygon(coords, colour)
             elif self.render_mode >= MODE_SOLID:
-                framebuffer.polygon(coords, colour, True)
+                fb.polygon(coords, colour, True)
 
     def render_foreground(self):
         self.fb.text("{0:2d} fps".format(self.fps), 0, self.fb.height - 10, WHITE)
