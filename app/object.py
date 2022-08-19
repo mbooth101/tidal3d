@@ -29,14 +29,14 @@ class Mesh:
         self._load(filename)
 
         # Position and linear velocity
-        self.position = [0, 0, 0]
-        self.velocity = [0, 0, 0]
-        self.delta_v = [0, 0, 0]
+        self.position = array('f', [0, 0, 0])
+        self.velocity = array('f', [0, 0, 0])
+        self.delta_v = array('f', [0, 0, 0])
 
         # Orientation and angular velocity
         self.orientation = array('f', [1, 0, 0, 0])
-        self.angular = [0, 0, 0]
-        self.axis = [0, 0, 0]
+        self.angular = array('f', [0, 0, 0])
+        self.axis = array('f', [0, 0, 0])
 
     def rotate_y(self, val):
         self.angular[1] = val
@@ -54,17 +54,17 @@ class Mesh:
 
         # Pre-calculate face normal vectors, a normal is the direction exactly perpendicular to
         # the plane of the face, the direction the front of the face is pointing
-        a = [0, 0, 0]
-        b = [0, 0, 0]
+        a = array('f', [0, 0, 0])
+        b = array('f', [0, 0, 0])
         for face in self.vert_indices:
             v_subtract(self.vertices[face[0]], self.vertices[face[1]], a)
             v_subtract(self.vertices[face[1]], self.vertices[face[2]], b)
-            normal = [0, 0, 0]
+            normal = array('f', [0, 0, 0])
             v_cross(a, b, normal)
             v_normalise(normal)
-            if normal not in self.normals:
-                self.normals.append(normal)
-            self.norm_indices.append(self.normals.index(normal))
+            # TODO normal deduplication -- "item in list" is not implemented in micropython for lists of arrays
+            self.normals.append(normal)
+            self.norm_indices.append(len(self.normals) - 1)
 
         # If the geometry has materials, let's also parse the accompanying material library file
         if op.mat_lib:
@@ -74,13 +74,13 @@ class Mesh:
             # Use the material's diffuse colour for the colour of the faces
             self.col_indices = [0] * len(self.vert_indices)
             for material in mp.materials:
-                self.colours.append(material['diffuse'])
+                self.colours.append(array('f', material['diffuse']))
                 for i in range(len(op.faces)):
                     if op.faces[i]['material'] == material['name']:
                         self.col_indices[i] = len(self.colours) - 1
         else:
             # Just default to all white faces if no materials specified
-            self.colours.append([255, 255, 255])
+            self.colours.append(array('f', [255, 255, 255]))
             self.col_indices = [0] * len(self.vert_indices)
 
         # Create a face-oriented view of index data
@@ -90,10 +90,10 @@ class Mesh:
         # Pre-allocate some working space for transforming vertices and normals
         self.vertices_trans = [None] * len(self.vertices)
         for i in range(len(self.vertices)):
-            self.vertices_trans[i] = [0, 0, 0]
+            self.vertices_trans[i] = array('f', [0, 0, 0])
         self.normals_trans = [None] * len(self.normals)
         for i in range(len(self.normals)):
-            self.normals_trans[i] = [0, 0, 0]
+            self.normals_trans[i] = array('f', [0, 0, 0])
 
     def update(self, delta_t):
         # Move our position by our velocity
@@ -153,7 +153,7 @@ class ObjectParser(ParserInterface):
             self.current_mat = values[0]
         # Extract a vertex
         if name == 'v':
-            self.vertices.append([float(v) for v in values])
+            self.vertices.append(array('f', [float(v) for v in values]))
         # Extract a face
         if name == 'f':
             # Faces are given as "vert_index/uv_index/normal_index" triplets but we don't support

@@ -35,12 +35,12 @@ class Renderer(App):
 
         # Camera position and view transformation matrix
         # TODO a proper camera system
-        self.v_campos = [0, 10, 35]
+        self.v_campos = array('f', [0, 10, 35])
         self.m_view = Renderer.identity_matrix()
-        m_translate(self.m_view, [0, -10, -35])
+        m_translate(self.m_view, array('f', [0, -10, -35]))
 
         # Lighting vector
-        self.v_light = [-1, -1, -2]
+        self.v_light = array('f', [-1, -1, -2])
         v_normalise(self.v_light)
 
         # Model to render
@@ -189,9 +189,9 @@ class Renderer(App):
 
         # Pre-allocated space for calculations to minimise object instantiations, which really helps with
         # performance sensitive applications like this
-        camera = [0, 0, 0]
-        centre = [0, 0, 0]
-        rgb = [0, 0, 0]
+        camera = array('f', [0, 0, 0])
+        centre = array('f', [0, 0, 0])
+        rgb = array('f', [0, 0, 0])
 
         # Generate a list of faces and their projected vertices for rendering
         faces = []
@@ -278,7 +278,7 @@ class Renderer(App):
             if self.render_mode > MODE_POINT_CLOUD and self.render_mode < MODE_SOLID_SHADED:
                 # Solid, unshaded colour
                 col = mesh.colours[col_index]
-                colour = color565(col[0], col[1], col[2])
+                colour = color565(int(col[0]), int(col[1]), int(col[2]))
             elif self.render_mode >= MODE_SOLID_SHADED:
                 # Scale the color by the angle of incidence of the light vector so a face appears
                 # more brightly lit the closer to orthogonal it is, but clamp to a minimum value
