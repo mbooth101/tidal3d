@@ -145,14 +145,21 @@ STATIC mp_obj_t v_average(size_t n_args, const mp_obj_t *args) {
 STATIC MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(v_average_obj, 2, 2, v_average);
 
 /**
- * Returns the vector given by multiplying the given 3D vector by the given 4x4 matrix
+ * Multiplies the given 3D vector by the given 4x4 matrix
  */
-STATIC mp_obj_t v_multiply(mp_obj_t vector, mp_obj_t matrix) {
-	mp_buffer_info_t mat_buffer;
-	mp_get_buffer_raise(matrix, &mat_buffer, MP_BUFFER_READ);
+STATIC mp_obj_t v_multiply(size_t n_args, const mp_obj_t *args) {
+	mp_obj_t *vec, *dest;
+	mp_obj_get_array_fixed_n(args[0], 3, &vec);
 
-	mp_obj_t *vec;
-	mp_obj_get_array_fixed_n(vector, 3, &vec);
+	mp_buffer_info_t mat_buffer;
+	mp_get_buffer_raise(args[1], &mat_buffer, MP_BUFFER_READ);
+
+	if (n_args > 2) {
+		mp_obj_get_array_fixed_n(args[2], 3, &dest);
+	} else {
+		dest = vec;
+	}
+
 	mp_float_t x = mp_obj_get_float(vec[0]);
 	mp_float_t y = mp_obj_get_float(vec[1]);
 	mp_float_t z = mp_obj_get_float(vec[2]);
@@ -165,32 +172,37 @@ STATIC mp_obj_t v_multiply(mp_obj_t vector, mp_obj_t matrix) {
 			+ ((float *)mat_buffer.buf)[12 + i];
 	}
 
-	mp_obj_list_t *result = MP_OBJ_TO_PTR(mp_obj_new_list(3, NULL));
-	result->items[0] = mp_obj_new_float(xyzw[0] / xyzw[3]);
-	result->items[1] = mp_obj_new_float(xyzw[1] / xyzw[3]);
-	result->items[2] = mp_obj_new_float(xyzw[2] / xyzw[3]);
-	return MP_OBJ_FROM_PTR(result);
+	dest[0] = mp_obj_new_float(xyzw[0] / xyzw[3]);
+	dest[1] = mp_obj_new_float(xyzw[1] / xyzw[3]);
+	dest[2] = mp_obj_new_float(xyzw[2] / xyzw[3]);
+	return mp_const_none;
 }
-STATIC MP_DEFINE_CONST_FUN_OBJ_2(v_multiply_obj, v_multiply);
+STATIC MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(v_multiply_obj, 2, 3, v_multiply);
 
 /**
- * Returns the vectors given by multiplying each 3D vector in the given list by the given 4x4 matrix
+ * Multiplies each of the 3D vectors in the given list by the given 4x4 matrix
  */
-STATIC mp_obj_t v_multiply_batch(mp_obj_t vectors, mp_obj_t matrix) {
-	mp_buffer_info_t mat_buffer;
-	mp_get_buffer_raise(matrix, &mat_buffer, MP_BUFFER_READ);
-
+STATIC mp_obj_t v_multiply_batch(size_t n_args, const mp_obj_t *args) {
 	size_t list_len;
-	mp_obj_t *list;
-	mp_obj_get_array(vectors, &list_len, &list);
+	mp_obj_t *vec_list, *dest_list;
+	mp_obj_get_array(args[0], &list_len, &vec_list);
 
-	mp_obj_list_t *results = MP_OBJ_TO_PTR(mp_obj_new_list(list_len, NULL));
+	mp_buffer_info_t mat_buffer;
+	mp_get_buffer_raise(args[1], &mat_buffer, MP_BUFFER_READ);
 
-	mp_obj_t *vec;
+	if (n_args > 2) {
+		mp_obj_get_array(args[2], &list_len, &dest_list);
+	} else {
+		dest_list = vec_list;
+	}
+
+	mp_obj_t *vec, *dest;
 	mp_float_t x, y, z;
 	mp_float_t xyzw[4];
 	for (size_t j = 0; j < list_len; j++) {
-		mp_obj_get_array_fixed_n(list[j], 3, &vec);
+		mp_obj_get_array_fixed_n(vec_list[j], 3, &vec);
+		mp_obj_get_array_fixed_n(dest_list[j], 3, &dest);
+
 		x = mp_obj_get_float(vec[0]);
 		y = mp_obj_get_float(vec[1]);
 		z = mp_obj_get_float(vec[2]);
@@ -201,16 +213,13 @@ STATIC mp_obj_t v_multiply_batch(mp_obj_t vectors, mp_obj_t matrix) {
 				+ z * ((float *)mat_buffer.buf)[8 + i]
 				+ ((float *)mat_buffer.buf)[12 + i];
 		}
-		mp_obj_list_t *result = MP_OBJ_TO_PTR(mp_obj_new_list(3, NULL));
-		result->items[0] = mp_obj_new_float(xyzw[0] / xyzw[3]);
-		result->items[1] = mp_obj_new_float(xyzw[1] / xyzw[3]);
-		result->items[2] = mp_obj_new_float(xyzw[2] / xyzw[3]);
-		results->items[j] = MP_OBJ_FROM_PTR(result);
+		dest[0] = mp_obj_new_float(xyzw[0] / xyzw[3]);
+		dest[1] = mp_obj_new_float(xyzw[1] / xyzw[3]);
+		dest[2] = mp_obj_new_float(xyzw[2] / xyzw[3]);
 	}
-
-	return MP_OBJ_FROM_PTR(results);
+	return mp_const_none;
 }
-STATIC MP_DEFINE_CONST_FUN_OBJ_2(v_multiply_batch_obj, v_multiply_batch);
+STATIC MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(v_multiply_batch_obj, 2, 3, v_multiply_batch);
 
 /**
  * Returns a scalar value of 0 if the given 3D vectors are exactly perpendicular, <0 if the angle

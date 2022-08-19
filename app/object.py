@@ -21,6 +21,10 @@ class Mesh:
         # It is a list of (vert_index, norm_index, col_index) tuples
         self.faces = []
 
+        # Transformed vertices and normals
+        self.vertices_trans = None
+        self.normals_trans = None
+
         # Load mesh and material data
         self._load(filename)
 
@@ -79,7 +83,16 @@ class Mesh:
             self.col_indices = [0] * len(self.vert_indices)
 
         # Create a face-oriented view of index data
-        self.faces = list(zip(self.vert_indices, self.norm_indices, self.col_indices))
+        for i in range(len(self.vert_indices)):
+            self.faces.append([self.vert_indices[i], self.norm_indices[i], self.col_indices[i]])
+
+        # Pre-allocate some working space for transforming vertices and normals
+        self.vertices_trans = [None] * len(self.vertices)
+        for i in range(len(self.vertices)):
+            self.vertices_trans[i] = [0, 0, 0]
+        self.normals_trans = [None] * len(self.normals)
+        for i in range(len(self.normals)):
+            self.normals_trans[i] = [0, 0, 0]
 
     def update(self, delta_t):
         # Move our position by our velocity

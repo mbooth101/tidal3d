@@ -183,9 +183,9 @@ class Renderer(App):
         # are both rotated and translated
         m_model = Renderer.identity_matrix()
         m_rotate(m_model, mesh.orientation)
-        norms = v_multiply_batch(mesh.normals, m_model)
+        v_multiply_batch(mesh.normals, m_model, mesh.normals_trans)
         m_translate(m_model, mesh.position)
-        verts = v_multiply_batch(mesh.vertices, m_model)
+        v_multiply_batch(mesh.vertices, m_model, mesh.vertices_trans)
 
         # Pre-allocated space for calculations to minimise object instantiations, which really helps with
         # performance sensitive applications like this
@@ -195,10 +195,9 @@ class Renderer(App):
 
         # Generate a list of faces and their projected vertices for rendering
         faces = []
-        projected_verts = [None] * len(verts)
         for indices, norm_index, col_index in mesh.faces:
             # Calculate the point in the centre of the face
-            v_average([verts[indices[0]], verts[indices[1]], verts[indices[2]]], centre)
+            v_average([mesh.vertices_trans[indices[0]], mesh.vertices_trans[indices[1]], mesh.vertices_trans[indices[2]]], centre)
 
             # Calculate the vector of the direction to the camera from the centre of the face
             v_subtract(self.v_campos, centre, camera)
@@ -208,55 +207,61 @@ class Renderer(App):
             # camera; if the angle between the normal vector and the camera vector is greater than
             # 90 degrees then we are seeing the back of the face, and if we are culling back faces
             # then we can avoid rendering it
-            dot = v_dot(norms[norm_index], camera)
+            dot = v_dot(mesh.normals_trans[norm_index], camera)
             if (dot < 0 and self.render_mode >= MODE_WIREFRAME_BACK_FACE_CULLING):
                 continue
 
-            # Since the face is going to be rendered, let's go ahead and project its vertices
-            for index in indices:
-
-                # Since faces can share vertices, and matrix multiplication is expensive, let's not
-                # project a vertex more than once, we'll just keep a list of vertices that we've
-                # already projected
-                if projected_verts[index]:
-                    continue
-
-                # Transform the world coorinates into camera coordinates by multiplying by the
-                # camera view matrix, allowing it be viewed from the camera's point of view
-                vert_cam = v_multiply(verts[index], self.m_view)
-
-                # Project the vertex onto a 2D plane by multiplying by the projection matrix, this
-                # yields normalised device coords where all points that lie within the viewable space
-                # defined by the field of view are mapped to between -1.0, 1.0
-                # The projection matrix multiplication also performs the perspective division, which
-                # makes more distant points appear further away by making them closer together on the
-                # x and y axes
-                vert_ndc = v_multiply(vert_cam, self.m_proj)
-                projected_verts[index] = vert_ndc
-
             # Record the face for rendering along with it's z-depth from the camera, the face's
             # z-depth is the z component of the centre point transformed by the camera view matrix
-            depth = v_multiply(centre, self.m_view)[2]
-            faces.append((indices, norm_index, col_index, depth))
+            v_multiply(centre, self.m_view)
+            faces.append((indices, norm_index, col_index, centre[2]))
 
         # A painter's algorithm; use the face's average depth value to order them from back to front,
         # this ensures far away faces are not drawn on top of near faces
         faces.sort(key=lambda face : face[3])
 
+        # Since faces can share vertices, and matrix multiplication is expensive, let's not project
+        # a vertex more than once, we'll just keep a list of vertices that we've already projected
+        projected_verts = [False] * len(mesh.vertices)
+
         # Render faces
         framebuffer = self.fb
         coords = array('h', [0] * 6)
+        face_verts = [None, None, None]
         for indices, norm_index, col_index, _ in faces:
 
-            # If a face's projected vertices all lie outside the viewable space (x or y is more than 1
-            # or less then -1) then we can cull it because it will not be seen; if at least one vertex
-            # can be seen, we'll render the partial face
             visible = False
-            face_verts = [projected_verts[i] for i in indices]
-            for face_vert in face_verts:
-                if face_vert[0] > -1 and face_vert[0] < 1 and face_vert[1] > -1 and face_vert[1] < 1:
+
+            # Let's go ahead and project the face's vertices
+            for i in range(3):
+                index = indices[i]
+                vertex = mesh.vertices_trans[index]
+
+                # Only project a vertex if we've not already done so
+                if not projected_verts[index]:
+                    projected_verts[index] = True
+
+                    # Transform the world coorinates into camera coordinates by multiplying by the
+                    # camera view matrix, allowing it be viewed from the camera's point of view
+                    v_multiply(vertex, self.m_view)
+
+                    # Project the vertex onto a 2D plane by multiplying by the projection matrix, this
+                    # yields normalised device coords where all points that lie within the viewable
+                    # space defined by the field of view are mapped to between -1.0, 1.0
+                    # The projection matrix multiplication also performs the perspective division,
+                    # which makes more distant points appear further away by making them closer together
+                    # on the x and y axes
+                    v_multiply(vertex, self.m_proj)
+
+                # If a face's projected vertices all lie outside the viewable space (x or y is more
+                # than 1 or less then -1) then we can cull it because it will not be seen; if at least
+                # one vertex can be seen, we'll render the partial face
+                if vertex[0] > -1 and vertex[0] < 1 and vertex[1] > -1 and vertex[1] < 1:
                     visible = True
-                    break
+
+                face_verts[i] = vertex
+
+            # If none of this face's vertices can be seen, continue to the next face
             if not visible:
                 continue
 
@@ -272,12 +277,13 @@ class Renderer(App):
             colour = WHITE
             if self.render_mode > MODE_POINT_CLOUD and self.render_mode < MODE_SOLID_SHADED:
                 # Solid, unshaded colour
-                colour = color565(mesh.colours[col_index][0], mesh.colours[col_index][1], mesh.colours[col_index][2])
+                col = mesh.colours[col_index]
+                colour = color565(col[0], col[1], col[2])
             elif self.render_mode >= MODE_SOLID_SHADED:
                 # Scale the color by the angle of incidence of the light vector so a face appears
                 # more brightly lit the closer to orthogonal it is, but clamp to a minimum value
                 # so unlit faces are not totally invisible, simulating a bit of ambient light
-                dot = v_dot(norms[norm_index], self.v_light)
+                dot = v_dot(mesh.normals_trans[norm_index], self.v_light)
                 v_scale(mesh.colours[col_index], -dot, rgb)
                 colour = color565(max(int(rgb[0]), 8), max(int(rgb[1]), 8), max(int(rgb[2]), 8))
 
