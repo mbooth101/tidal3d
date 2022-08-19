@@ -297,7 +297,7 @@ STATIC mp_obj_t v_ndc_to_screen(size_t n_args, const mp_obj_t *args) {
 STATIC MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(v_ndc_to_screen_obj, 4, 4, v_ndc_to_screen);
 
 // Internal helper to calculate matrix multiplication used by m_multiply, m_translate and m_rotate
-STATIC void m_multiply_internal(mp_buffer_info_t *dest, float *mat1, float *mat2) {
+STATIC void m_multiply_internal(float *dest, float *mat1, float *mat2) {
 	float m0[4], m1[4], m2[4], m3[4];
 
 	m0[0] = mat1[0] * mat2[0] + mat1[1] * mat2[4] + mat1[2] * mat2[8] + mat1[3] * mat2[12];
@@ -321,10 +321,10 @@ STATIC void m_multiply_internal(mp_buffer_info_t *dest, float *mat1, float *mat2
 	m3[3] = mat1[12] * mat2[3] + mat1[13] * mat2[7] + mat1[14] * mat2[11] + mat1[15] * mat2[15];
 
 	for (size_t i = 0; i < 4; i++) {
-		mp_binary_set_val_array(dest->typecode, dest->buf, i, mp_obj_new_float(m0[i]));
-		mp_binary_set_val_array(dest->typecode, dest->buf, i + 4, mp_obj_new_float(m1[i]));
-		mp_binary_set_val_array(dest->typecode, dest->buf, i + 8, mp_obj_new_float(m2[i]));
-		mp_binary_set_val_array(dest->typecode, dest->buf, i + 12, mp_obj_new_float(m3[i]));
+		dest[i] = m0[i];
+		dest[i + 4] = m1[i];
+		dest[i + 8] = m2[i];
+		dest[i + 12] = m3[i];
 	}
 }
 
@@ -337,7 +337,7 @@ STATIC mp_obj_t m_multiply(mp_obj_t matrix1, mp_obj_t matrix2) {
 	mp_get_buffer_raise(matrix2, &mat2_buffer, MP_BUFFER_READ);
 
 	// Perform the multiplication
-	m_multiply_internal(&mat1_buffer, ((float *)mat1_buffer.buf), ((float *)mat2_buffer.buf));
+	m_multiply_internal(((float *)mat1_buffer.buf), ((float *)mat1_buffer.buf), ((float *)mat2_buffer.buf));
 	return mp_const_none;
 }
 STATIC MP_DEFINE_CONST_FUN_OBJ_2(m_multiply_obj, m_multiply);
@@ -362,7 +362,7 @@ STATIC mp_obj_t m_translate(mp_obj_t matrix, mp_obj_t vector) {
 	trans_mat[14] = ((float *)vec_buffer.buf)[2];
 
 	// Perform the multiplication
-	m_multiply_internal(&mat_buffer, ((float *)mat_buffer.buf), trans_mat);
+	m_multiply_internal(((float *)mat_buffer.buf), ((float *)mat_buffer.buf), trans_mat);
 	return mp_const_none;
 }
 STATIC MP_DEFINE_CONST_FUN_OBJ_2(m_translate_obj, m_translate);
@@ -397,7 +397,7 @@ STATIC mp_obj_t m_rotate(mp_obj_t matrix, mp_obj_t quaternion) {
 	rot_mat[10] = 1 - 2 * (x * x + y * y);
 
 	// Perform the multiplication
-	m_multiply_internal(&mat_buffer, ((float *)mat_buffer.buf), rot_mat);
+	m_multiply_internal(((float *)mat_buffer.buf), ((float *)mat_buffer.buf), rot_mat);
 	return mp_const_none;
 }
 STATIC MP_DEFINE_CONST_FUN_OBJ_2(m_rotate_obj, m_rotate);
@@ -425,10 +425,10 @@ STATIC mp_obj_t q_rotate(mp_obj_t quaternion, mp_obj_t degrees, mp_obj_t vector)
 	float q2z = ((float *)vec_buffer.buf)[2] * factor;
 
 	// Multiply the given quaternion by the rotation quaternion
-	mp_binary_set_val_array(quat_buffer.typecode, quat_buffer.buf, 0, mp_obj_new_float(q1w * q2w - q1x * q2x - q1y * q2y - q1z * q2z));
-	mp_binary_set_val_array(quat_buffer.typecode, quat_buffer.buf, 1, mp_obj_new_float(q1w * q2x + q1x * q2w + q1y * q2z - q1z * q2y));
-	mp_binary_set_val_array(quat_buffer.typecode, quat_buffer.buf, 2, mp_obj_new_float(q1w * q2y - q1x * q2z + q1y * q2w + q1z * q2x));
-	mp_binary_set_val_array(quat_buffer.typecode, quat_buffer.buf, 3, mp_obj_new_float(q1w * q2z + q1x * q2y - q1y * q2x + q1z * q2w));
+	((float *)quat_buffer.buf)[0] = q1w * q2w - q1x * q2x - q1y * q2y - q1z * q2z;
+	((float *)quat_buffer.buf)[1] = q1w * q2x + q1x * q2w + q1y * q2z - q1z * q2y;
+	((float *)quat_buffer.buf)[2] = q1w * q2y - q1x * q2z + q1y * q2w + q1z * q2x;
+	((float *)quat_buffer.buf)[3] = q1w * q2z + q1x * q2y - q1y * q2x + q1z * q2w;
 	return mp_const_none;
 }
 STATIC MP_DEFINE_CONST_FUN_OBJ_3(q_rotate_obj, q_rotate);
