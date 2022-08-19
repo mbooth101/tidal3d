@@ -59,7 +59,8 @@ class Mesh:
         for face in self.vert_indices:
             v_subtract(self.vertices[face[0]], self.vertices[face[1]], a)
             v_subtract(self.vertices[face[1]], self.vertices[face[2]], b)
-            normal = v_cross(a, b)
+            normal = [0, 0, 0]
+            v_cross(a, b, normal)
             v_normalise(normal)
             if normal not in self.normals:
                 self.normals.append(normal)

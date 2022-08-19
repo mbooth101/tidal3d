@@ -239,26 +239,32 @@ STATIC mp_obj_t v_dot(mp_obj_t vector1, mp_obj_t vector2) {
 STATIC MP_DEFINE_CONST_FUN_OBJ_2(v_dot_obj, v_dot);
 
 /**
- * Returns the vector that is exactly perpendicular to both the given vectors (cross product)
+ * Multiplies the given 3D vector by the second 3D vector to yield the vector that is exactly
+ * perpendicular to both (cross product)
  */
-STATIC mp_obj_t v_cross(mp_obj_t vector1, mp_obj_t vector2) {
-	size_t len1, len2;
-	mp_obj_t *vec1, *vec2;
-	mp_obj_get_array(vector1, &len1, &vec1);
-	mp_obj_get_array(vector2, &len2, &vec2);
-
-	size_t len = (len1 < len2 ? len1 : len2);
-	mp_obj_list_t *result = MP_OBJ_TO_PTR(mp_obj_new_list(len, NULL));
-	for (size_t i = 0, n = 0, nn = 0; i < len; i++) {
-		n = (i + 1) % len;
-		nn = (i + 2) % len;
-		mp_float_t val = mp_obj_get_float(vec1[n]) * mp_obj_get_float(vec2[nn]) -
-				 mp_obj_get_float(vec1[nn]) * mp_obj_get_float(vec2[n]);
-		result->items[i] = mp_obj_new_float(val);
+STATIC mp_obj_t v_cross(size_t n_args, const mp_obj_t *args) {
+	mp_obj_t *vec1, *vec2, *dest;
+	mp_obj_get_array_fixed_n(args[0], 3, &vec1);
+	mp_obj_get_array_fixed_n(args[1], 3, &vec2);
+	if (n_args > 2) {
+		mp_obj_get_array_fixed_n(args[2], 3, &dest);
+	} else {
+		dest = vec1;
 	}
-	return MP_OBJ_FROM_PTR(result);
+
+	mp_float_t xyz[3];
+	for (size_t i = 0, n = 0, nn = 0; i < 3; i++) {
+		n = (i + 1) % 3;
+		nn = (i + 2) % 3;
+		xyz[i] = mp_obj_get_float(vec1[n]) * mp_obj_get_float(vec2[nn]) -
+			 mp_obj_get_float(vec1[nn]) * mp_obj_get_float(vec2[n]);
+	}
+	dest[0] = mp_obj_new_float(xyz[0]);
+	dest[1] = mp_obj_new_float(xyz[1]);
+	dest[2] = mp_obj_new_float(xyz[2]);
+	return mp_const_none;
 }
-STATIC MP_DEFINE_CONST_FUN_OBJ_2(v_cross_obj, v_cross);
+STATIC MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(v_cross_obj, 2, 3, v_cross);
 
 /**
  * Return screen coordinates for a list of vertices containing normalised device coordinates (NDCs),
