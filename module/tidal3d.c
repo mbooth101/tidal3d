@@ -167,9 +167,15 @@ STATIC mp_obj_t v_multiply(size_t n_args, const mp_obj_t *args) {
 			+ z * ((float *)mat_buffer.buf)[8 + i]
 			+ ((float *)mat_buffer.buf)[12 + i];
 	}
-	((float *)dest_buffer.buf)[0] = xyzw[0] / xyzw[3];
-	((float *)dest_buffer.buf)[1] = xyzw[1] / xyzw[3];
-	((float *)dest_buffer.buf)[2] = xyzw[2] / xyzw[3];
+	if (xyzw[3] != 1) {
+		((float *)dest_buffer.buf)[0] = xyzw[0] / xyzw[3];
+		((float *)dest_buffer.buf)[1] = xyzw[1] / xyzw[3];
+		((float *)dest_buffer.buf)[2] = xyzw[2] / xyzw[3];
+	} else {
+		((float *)dest_buffer.buf)[0] = xyzw[0];
+		((float *)dest_buffer.buf)[1] = xyzw[1];
+		((float *)dest_buffer.buf)[2] = xyzw[2];
+	}
 
 	return mp_const_none;
 }
@@ -208,9 +214,15 @@ STATIC mp_obj_t v_multiply_batch(size_t n_args, const mp_obj_t *args) {
 				+ z * ((float *)mat_buffer.buf)[8 + i]
 				+ ((float *)mat_buffer.buf)[12 + i];
 		}
-		((float *)dest_buffer.buf)[0] = xyzw[0] / xyzw[3];
-		((float *)dest_buffer.buf)[1] = xyzw[1] / xyzw[3];
-		((float *)dest_buffer.buf)[2] = xyzw[2] / xyzw[3];
+		if (xyzw[3] != 1) {
+			((float *)dest_buffer.buf)[0] = xyzw[0] / xyzw[3];
+			((float *)dest_buffer.buf)[1] = xyzw[1] / xyzw[3];
+			((float *)dest_buffer.buf)[2] = xyzw[2] / xyzw[3];
+		} else {
+			((float *)dest_buffer.buf)[0] = xyzw[0];
+			((float *)dest_buffer.buf)[1] = xyzw[1];
+			((float *)dest_buffer.buf)[2] = xyzw[2];
+		}
 	}
 
 	return mp_const_none;

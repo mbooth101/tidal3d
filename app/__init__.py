@@ -180,25 +180,27 @@ class Renderer(App):
         fb = self.fb
         mesh = self.mesh
 
-        # Transform all vertices to their positions in the world by multiplying by the model transformation
-        # matrix, which is specific to the mesh being rendered (create world coordinates)
-        # Note that translating doesn't mean anything for vectors, so normals are rotated only, and vertices
-        # are both rotated and translated
+        # Transform all vertices to their positions in the world by multiplying by the model
+        # transformation matrix, which is specific to the mesh being rendered (create world
+        # coordinates)
+        # Note that translating doesn't mean anything for vectors, so normals are rotated only,
+        # and vertices are both rotated and translated
         m_model = Renderer.identity_matrix()
         m_rotate(m_model, mesh.orientation)
         v_multiply_batch(mesh.normals, m_model, mesh.normals_trans)
         m_translate(m_model, mesh.position)
         v_multiply_batch(mesh.vertices, m_model, mesh.vertices_trans)
 
-        # Pre-allocated space for calculations to minimise object instantiations, which really helps with
-        # performance sensitive applications like this
+        # Pre-allocated space for intermediate calculations to minimise object instantiations,
+        # which really helps with performance sensitive applications like this
         camera = array('f', [0, 0, 0])
         centre = array('f', [0, 0, 0])
         rgb = array('f', [0, 0, 0])
+        coords = array('h', [0] * 6)
+        face_verts = [None, None, None]
 
         # Generate a list of faces and their projected vertices for rendering
         faces = []
-        face_verts = [None, None, None]
         for indices, norm_index, col_index in mesh.faces:
             # Calculate the point in the centre of the face
             face_verts[0] = mesh.vertices_trans[indices[0]]
@@ -232,7 +234,6 @@ class Renderer(App):
         projected_verts = [False] * len(mesh.vertices)
 
         # Render faces
-        coords = array('h', [0] * 6)
         for indices, norm_index, col_index, _ in faces:
 
             visible = False
@@ -282,8 +283,8 @@ class Renderer(App):
             colour = WHITE
             if self.render_mode > MODE_POINT_CLOUD and self.render_mode < MODE_SOLID_SHADED:
                 # Solid, unshaded colour
-                col = mesh.colours[col_index]
-                colour = color565(int(col[0]), int(col[1]), int(col[2]))
+                v_scale(mesh.colours[col_index], 1, rgb)
+                colour = color565(int(rgb[0]), int(rgb[1]), int(rgb[2]))
             elif self.render_mode >= MODE_SOLID_SHADED:
                 # Scale the color by the angle of incidence of the light vector so a face appears
                 # more brightly lit the closer to orthogonal it is, but clamp to a minimum value
