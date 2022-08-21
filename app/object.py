@@ -21,7 +21,10 @@ class Mesh:
         # It is a list of (vert_index, norm_index, col_index) tuples
         self.faces = []
 
-        # Transformed vertices and normals
+        # Pre-allocated space for face index/depth pairs for depth-sorting faces
+        self.depth_map = None
+
+        # Pre-allocated space for transformed vertices and normals
         self.vertices_trans = None
         self.normals_trans = None
 
@@ -86,6 +89,9 @@ class Mesh:
         # Create a face-oriented view of index data
         for i in range(len(self.vert_indices)):
             self.faces.append([self.vert_indices[i], self.norm_indices[i], self.col_indices[i]])
+
+        # Pre-allocate some working space for face index/depth pairs for depth-sorting faces
+        self.depth_map = array('f', [0] * (len(self.faces) * 2))
 
         # Pre-allocate some working space for transforming vertices and normals
         self.vertices_trans = [None] * len(self.vertices)

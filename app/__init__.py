@@ -199,16 +199,18 @@ class Renderer(App):
         coords = array('h', [0] * 6)
         face_verts = [None, None, None]
 
-        # Generate a list of faces and their projected vertices for rendering
-        faces = []
-        for indices, norm_index, col_index in mesh.faces:
+        # Generate a list of faces for rendering
+        num_faces = 0
+        for face_index in range(len(mesh.faces)):
+            indices, norm_index, _ = mesh.faces[face_index]
+
             # Calculate the point in the centre of the face
             face_verts[0] = mesh.vertices_trans[indices[0]]
             face_verts[1] = mesh.vertices_trans[indices[1]]
             face_verts[2] = mesh.vertices_trans[indices[2]]
             v_average(face_verts, centre)
 
-            # Calculate the vector of the direction to the camera from the centre of the face
+            # Calculate the the direction to the camera from the centre of the face
             v_subtract(self.v_campos, centre, camera)
             v_normalise(camera)
 
@@ -220,27 +222,31 @@ class Renderer(App):
             if (dot < 0 and self.render_mode >= MODE_WIREFRAME_BACK_FACE_CULLING):
                 continue
 
-            # Record the face for rendering along with it's z-depth from the camera, the face's
-            # z-depth is the z component of the centre point transformed by the camera view matrix
+            # Record the face for rendering along with its average depth from the camera, the face's
+            # depth is the z component of the centre point transformed by the camera view matrix
             v_multiply(centre, self.m_view)
-            faces.append((indices, norm_index, col_index, centre[2]))
+            mesh.depth_map[num_faces * 2] = face_index
+            mesh.depth_map[num_faces * 2 + 1] = centre[2]
+            num_faces += 1
 
         # A painter's algorithm; use the face's average depth value to order them from back to front,
         # this ensures far away faces are not drawn on top of near faces
-        faces.sort(key=lambda face : face[3])
+        z_sort(mesh.depth_map, num_faces)
 
         # Since faces can share vertices, and matrix multiplication is expensive, let's not project
         # a vertex more than once, we'll just keep a list of vertices that we've already projected
         projected_verts = [False] * len(mesh.vertices)
 
         # Render faces
-        for indices, norm_index, col_index, _ in faces:
+        for i in range(0, num_faces * 2, 2):
+            face_index = int(mesh.depth_map[i])
+            indices, norm_index, col_index = mesh.faces[face_index]
 
             visible = False
 
             # Let's go ahead and project the face's vertices
-            for i in range(3):
-                index = indices[i]
+            for j in range(3):
+                index = indices[j]
                 vertex = mesh.vertices_trans[index]
 
                 # Only project a vertex if we've not already done so
@@ -265,7 +271,7 @@ class Renderer(App):
                 if vertex[0] > -1 and vertex[0] < 1 and vertex[1] > -1 and vertex[1] < 1:
                     visible = True
 
-                face_verts[i] = vertex
+                face_verts[j] = vertex
 
             # If none of this face's vertices can be seen, continue to the next face
             if not visible:
@@ -307,4 +313,3 @@ class Renderer(App):
 
 # Set the entrypoint for the app launcher
 main = Renderer
-
