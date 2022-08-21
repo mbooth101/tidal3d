@@ -445,6 +445,44 @@ STATIC mp_obj_t q_rotate(mp_obj_t quaternion, mp_obj_t degrees, mp_obj_t vector)
 }
 STATIC MP_DEFINE_CONST_FUN_OBJ_3(q_rotate_obj, q_rotate);
 
+// Sort comparison function used by z_sort
+STATIC int sort_cmp(const void *a, const void *b) {
+	const float *aa = a;
+	const float *bb = b;
+
+	// We are sorting key/value pairs, and we want to sort by the value, hence indexing into
+	// the second float of the element being sorted
+	if (aa[1] < bb[1]) {
+		return -1;
+	} else if (aa[1] > bb[1]) {
+		return 1;
+	}
+	return 0;
+}
+
+/**
+ * A custom fast sorting function for sorting python arrays that contain key/value pairs of
+ * floats, for example this is useful for depth-sorting faces given an array containing face
+ * index/depth pairs
+ *
+ * map: An array containing key/value pairs
+ * map_size: Number of key/value pairs in the map
+ */
+STATIC mp_obj_t z_sort(size_t n_args, const mp_obj_t *args) {
+	mp_buffer_info_t map_buffer;
+	mp_get_buffer_raise(args[0], &map_buffer, MP_BUFFER_RW);
+	mp_int_t map_size = mp_obj_get_int(args[1]);
+
+	// For sorting purposes an element is double the size of an array element because we are
+	// sorting key/value pairs, not individual elements
+	size_t elem_size = mp_binary_get_size('@', map_buffer.typecode, NULL) * 2;
+
+	// Perform the sort
+	qsort(((float *)map_buffer.buf), map_size, elem_size, sort_cmp);
+	return mp_const_none;
+}
+STATIC MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(z_sort_obj, 2, 2, z_sort);
+
 #if !MICROPY_ENABLE_DYNRUNTIME
 STATIC const mp_rom_map_elem_t tidal3d_module_globals_table[] = {
     { MP_ROM_QSTR(MP_QSTR___name__), MP_ROM_QSTR(MP_QSTR_tidal3d) },
@@ -463,6 +501,7 @@ STATIC const mp_rom_map_elem_t tidal3d_module_globals_table[] = {
     { MP_ROM_QSTR(MP_QSTR_m_translate), MP_ROM_PTR(&m_translate_obj) },
     { MP_ROM_QSTR(MP_QSTR_m_rotate), MP_ROM_PTR(&m_rotate_obj) },
     { MP_ROM_QSTR(MP_QSTR_q_rotate), MP_ROM_PTR(&q_rotate_obj) },
+    { MP_ROM_QSTR(MP_QSTR_z_sort), MP_ROM_PTR(&z_sort_obj) },
 };
 STATIC MP_DEFINE_CONST_DICT(tidal3d_module_globals, tidal3d_module_globals_table);
 
