@@ -107,6 +107,8 @@ class Renderer(App):
     def select_object(self):
         # Cycle through objects to render
         if self.render_object == 'cube.obj':
+            self.render_object = 'dodeca.obj'
+        elif self.render_object == 'dodeca.obj':
             self.render_object = 'teapot.obj'
         elif self.render_object == 'teapot.obj':
             self.render_object = 'cube.obj'

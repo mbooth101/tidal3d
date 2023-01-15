@@ -70,8 +70,8 @@ class Mesh:
             self.norm_indices.append(len(self.normals) - 1)
 
         # If the geometry has materials, let's also parse the accompanying material library file
+        mp = MaterialParser()
         if op.mat_lib:
-            mp = MaterialParser()
             mp.parse("apps/tidal_3d/" + op.mat_lib)
 
             # Use the material's diffuse colour for the colour of the faces
@@ -81,7 +81,7 @@ class Mesh:
                 for i in range(len(op.faces)):
                     if op.faces[i]['material'] == material['name']:
                         self.col_indices[i] = len(self.colours) - 1
-        else:
+        if not op.mat_lib or not mp.materials:
             # Just default to all white faces if no materials specified
             self.colours.append(array('f', [255, 255, 255]))
             self.col_indices = [0] * len(self.vert_indices)
@@ -194,5 +194,6 @@ class MaterialParser(ParserInterface):
             self.current['diffuse'] = [int(255 if float(f) >= 1 else float(f) * 256) for f in values]
 
     def finish(self):
-        self.materials.append(self.current)
+        if self.current:
+            self.materials.append(self.current)
         self.current = None
