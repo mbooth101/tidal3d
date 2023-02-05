@@ -1,0 +1,150 @@
+<slide 1>
+
+Good afternoon
+
+This is a talk about graphics programming using micropython for an embedded ESP32 microcontroller.
+
+And while I've been a programmer for 20 years, you should know that I'm none of these things: I'm not a graphics programmer, I'm not a python programmer, and I'm not an embedded programmer.
+
+<slide 2>
+
+So I can't express strongly enough how important this part of the talk description is and I won;t be offended if you want to leave and find something more educational.
+
+<slide 3>
+
+For those who don't know EMF Camp is a weekend outdoor hacker and maker conference and festival in a similar vein to the Chaos Communication Camp and the 4 yearly dutch festival. There's robots and lasers and knitting and soldering and geodesic domes and blacksmitting and it's just great fun for nerds of all kinds.
+
+It's a long standing tradition at these kind of events to give attendees an electronic event badge.
+
+<slide 4> 
+
+The aim of these is to give people interesting hardware they've probably not experimented with before while being simple enough that anyone can play with it. Usually they are somekind of microcontroller running micropython allowing an easy way to interact with all the peripherals like rgb neopixels, acceleromoters, environmental sensors and breakout ports and what have you. Not only are they interesting to play with, but also beautiful objects in their own right with their etched PCB artwork.
+
+I usually lose next few weekends after the festival messing with them to see what they can do.
+
+The one on the left there is the 2018 badge. And honestly they went all out with it, not only does it have all the usual things I just mentioned, but they also slapped on a GSM module, gave everyone a sim card, and set up their own cell phone network on site at the festival. You can tell from it's form factor that it took direct inspiration from the Nokia Ngage. And there's like an app store where you can submit the apps you've written for it, so obviously by the end of the first day of the festival, there was  not one, but two competing dating apps...
+
+It was a great device however the one downside it had was it's terible slow screen. You can probably recognise here is a version of Catan on screen and I remember when I was writing this I was spending hours trying to optimise it to redraw as little as possible because it took literal seconds to blit a full screen of pixels. It was just too limiting for real time graphics.
+
+The one on the right is this years badge. For a variety of reasons include the pandemic and the global silicon shortage, this years badge ended up being a lot smaller and built with whatever hardware they could get hold of. It's still a great device and has many of the same sensor periphirals as the old badge, but I needed to see how fast the display is compared to the previous device.
+
+<slide 5>
+
+I made this checkerboard pattern and started by just trying to fill the screen with pixels. Writing to the screen directly through it's driver module took about 70ms per frame. The driver module has primitive drawing functions, and this is lots of calls to fill_rect each of which opens up communication to the screen, which involves setting pins high or low or whatever and probably costs a lot of time.
+
+So I tried constructing the scene in an offscreen bytearray and blitting the whole image to the screen in one driver call and this pretty much halved the draw time per frame. However it is a problem because I now have to implement these primitive drawing functions like fill_rect myself, which is a pain, and I have no interest in re-implementing methods for drawing primitives.
+
+This is ominous foreshadowing by the way.
+
+This is when I discovered the framebuf module in micropython, which wraps a byte buffer and comes with it's own versions of the primitive drawing functions, at slight and reasonable performance cost of about 10ms.
+
+This is great because now we have a performance baseline, just blitting a screen full of pixel, without doing any other work costs us 41ms, so if we want to do something cool like realtime 3D we've got like 59ms of head room to do all the work associated with 3D rendering and still acheive a reasonable 10fps.
+
+<slide 6>
+
+And obviously instead of looking for code to re-use like a reasonable person, I decided to reimplement from scratch a 3D rasteriser. So here's a quick primer on the 3d rasterisation process, or what needs to happen to render my thing to the screen.
+
+Lets say you have model straight out of blender, all of its vertex coords are in local space.
+You multiply that by the world or model matrix to shift the vertices into world space.
+Multiplying that by the camera or view matrix brings them into view space.
+Multiply that by the projection matrix brings you to clip space
+Dividing the clip space coordinates by W to make further away vertices appear closer together brings us to normalised device coordinate space, or ndc space
+And finally the x and y components of NDC are multiplied by your screen dimensions to get coordinates in screen space
+
+And using these values, we can tell the screen which pixel to turn on. Important to note, at this point all the math is written in pure python and we must do this for every vertex and we must do it every frame. For 8 vertices, this takes us an additional 12ms per frame. Not too shabby.
+
+<slide 7>
+
+And here it is with the dots joined up, only slightly slower.
+
+The next step of course is to fill those triangles in and render solid objects. So instead of rendering a triangle with three calls to line(), I want a single call to polygon() which would have been easy if micropython's framebuf module had such a method. It did not.
+
+I could have sworn I've seen a polygon function though somewhere, so i downloaded the firmware and started looking at the code
+
+<slide 8>
+
+It turns out the display driver module has the function, and the micropython framebuffer does not. This is a bit annoying as we've already seen that repeatedly calling the driver is way slower than using the off screen framebuffer. It turns out I am in the business of reimplementing primitive drawing functions after all.
+
+However, it's obviously already a solved problem, so it shouldn't be hard to hard to port implementation from the driver and try to make it work for framebuffer.
+
+Looking at the source it seems to be based on a well-known polygon fill algorithm and there's a link to a website in the comments where the algorithm  is discussed and the implementation in the display driver is pretty much identical to the public domain reference implementation given on the website.
+
+Sounds promising right? And even after adding these two functions to framebuf it seemed to work okay to my eyes but y'know -- I don't know you can make them out from where you are but these pixels are extremely tiny. It was only when I was adding unit tests in preparation for submitting this addition upstream to Micropython project, that I noticed some deficiencies.
+
+<slide 8>
+
+The left most image is drawn using the non-filled polygon function and the second image uses the fill_polygon function to draw a filled polygon of the exactly the same dimensions on top of the non-filled polygon. Maybe it was naive of me, but I expected, given the exact same vertices, that filled polygons would have the same dimensions as none filled ones.
+
+And it's not even just that it doesn't cover up all the red, but if you look closely the blue edge on the left has a different contruction too. It seems to be a problem in the reference implementation of the algorithm that the display driver has just inherited.
+
+However most of the incorrectness seemed to be just rounding bugs where as we process the polygon row by row, it is calculating how far down the line the current row it as a ratio as a float, and then truncating that to an integer. That got us nearly all the way there except for that pesky red spot you see on the third image.
+
+We scratched our heads a little bit on the pull request until Jimmo who was reviewing my change came up with some code to detect such cases and set the pixels explicitly when it happens.
+
+The problem it turned out was that with this algorithm, detecting points on a polygon edge will QUOTE deliver unpredictable results but that is QUOTE not generally a problem because QUOTE the edge of the polygon is infinitely thin.
+
+You can tell this was developed by a physicist. My polygons have a measurable edge of one pixel. Look it's right there!
+
+<slide 9>
+
+Now we can draw arbitrary polygons we can replace the line calls and for the first time draw real triangle. This adds another few milliseconds to the render time, but that makes sense since we are colouring way more pixels, but you may notice here we seeing the inside faces of the sides of the cube drawn on top the outside face of the front of the cube.
+
+This means we need to add an extra step to our raterisation pipeline from before called back-face culling, which is to say we should only render the front of a polygon, and not the back. Unfortunately this brought the render time up even further, which seems counter-intuitive because we rendering way fewer triangles and while it's true we save the cost of projecting a few vertices, there is the additional cost of calculating the normal vector for every face, the direction it is pointing, and taking the dot product of that and the direction to the camera, to determine which faces we can cull.
+
+Up until now I hadn't been thinking too hard about performance which you can tell because there's no FPS counter on screen yet. But I'm starting to get a bit close to the 100ms per frame limit that I'd set myself and we've only just got to the point of rendering a cube, truly the "hello world" of 3D graphics. And not only that, I've also started to notice that occasionally there's a concerning stall where a frame is taking more than 200 ms. More about that later.
+
+<slide 10>
+
+In the meantime there seemed to be some low hanging fruit for algorithmic optimisations, like pre-calculating the face normal vectors, obviously, and also avoid performing the perspective division if would be a no-op.
+
+The division is done during the matrix mult function, but unless you are multiplying by the perspective matrix, the W value is always 1. So by only doing the division when W is not one, we save three divisions per vertex, for every matrix we multiply by. For this cube, that's like 144 divisions per frame. 
+
+Which of course means I can give it some more work to do and add a simple lighting model, more dot products, scaling colour values, etc and bring the per frame time back up to where it was before.
+
+It feels like progress though because we're doing more work for same amount of time. However, I decided it was now time to try something a little less trivial and try rendering an industry standard Utah teapot....
+
+<slide 11>
+
+I found a nice low poly model -- 240 triangles -- but it's quite bad.
+
+You can see I decided to break out the big guns, and by break out the big guns, I of course mean write some C code. Re-writing the hottest methods in C as a micropython native module more than halves the time to render a frame, which is huge so you can guess what I did next right? I re-wrote all the maths functions in C.
+
+As a general strategy, if you find yourself calling a method 1200 times per frame, moving it into native code is quite effective.
+
+<slide 12>
+
+Now for a diversion on writing native code for your micropython application, there's two ways
+
+Obviously the second way was preferable to me here because I don't want to require users to reflash their devices firmware if I change something on the native side. There were problems with this however
+
+#1 undefined symbol, which seems to be a problem with the espressif toolchain, linker seems unable to deliver the software implementation for floating point division, I would love to know if this is fixed in newer versions of the toolchain
+#2 because of problem 1, downloaded the source to espressifs toolchain and ripped off the assembly implementation of the floating point division method and added it to my module. The micropython build system for natmods wasn't prepared for this however, but it was easily fixed and that was actually the first
+#3 crash after garbage collection this seems to be a problem in micropython but it's beyond my ability to debug -- there seems to be a reference to some native thing that is erroneously collected by the garbage collector and then the next time you call a function from the native module, it crashes. Reducing the number of object allocations delays the problem, but I was unable to eliminate it entirely.
+
+<slide 13>
+
+And so, after algorithmic improvements, and pushing the maths into native code, this is list of things I found had a real measurable difference on the performance.
+
+The top one is the biggie. Just don't create objects. Just don't. It's too expensive. I initially wanted all my geometry data to be immutable, but it's just not feasible. Don't create a new object with the results of vector multiplication, just mutate one of the operands. And pre-allocate arrays. For example, I know how many faces there are in the scene at load time, so we don't need to allocate any new buffers on every frame. 
+
+Try to reduce the number times we cross the python/native barrier. Pass batches of vertices to native functions, instead of calling them repeatedly -- for example converting to NDC or batch multipling vertices saves ~10ms per frame.
+
+Pass arrays and not lists. This might be obvious to you python experts but you can give arrays an explicit type and then on the native side, we can make assumptions about the type of data in the arrays and by-pass much of the type system.
+
+I tried using the libc qsort() function for Z-sorting faces instead of List.Sort() and that turned out to be way faster. I have to assume this is also because of the type system, or maybe qsort is just better than timsort for this use-case, I have no idea, this whole talk is not exactly what you would call scientifically rigourous
+
+And this last one was surprising to me how much of a difference it made. It basically comes down to caching as a local variable any value that is accessed by object dereference more than a couple times, so instead of self.foo, self.foo, self.foo, you do bar = self.foo and then you bar instead
+
+I wouldn't recomend doing that in code that is not performance critical though, because of readability.
+
+<slide 14>
+
+And so this is how stands today. Comfortably under the 100ms per frame target I set my self. There is still a occasionaly garbage collection stall but it is few and far between and honestly I'm pretty happy with the performance.
+
+What can it be used for? Good question. This is probably performant enough to write some simple games, like a 3D Lunar Lander or something. Jurassic Park syle 3D user interface for your home automation maybe. It was just a fun way to spend a few weekends after the festival.
+
+<slide 15>
+
+The cheif lesson I think is that the best way to get involved with a project is to just start using it. And when you come up against some limitation of the project, likely as not you'll be the person best placed to fix it. The micropython folks were so helpful at getting my changes merged.
+
+Thanks to them and thanks to you for listening
